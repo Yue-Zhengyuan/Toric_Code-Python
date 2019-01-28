@@ -9,7 +9,8 @@
 import numpy as np
 
 # system parameters
-para = {'nx': 4, 'ny': 4, 'v_U': 100.0, 'p_g': 1.0, 'hz': 0.0}
+para = {'nx': 4, 'ny': 4, 'v_U': 100.0,
+ 'p_g': 1.0, 'hz': 0.0, 'tau': 0.01}
 n = 2 * (para['nx'] - 1) * (para['ny'] - 1)
 # X-non-periodic
 n += para['nx'] - 1
