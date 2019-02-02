@@ -46,7 +46,7 @@ for i in range(p.n):
 
 # generate gates for one step of time evolution
 gateList = gates.makeGateList(str_op, p.para)
+# apply gates to the string operator MPO
 evol.gateTEvol(str_op, gateList, 1.0, p.para['tau'])
 
-# apply gates to the string operator MPO
 print('Hello world')
