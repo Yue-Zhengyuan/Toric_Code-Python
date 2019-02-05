@@ -15,6 +15,8 @@ import copy
 import gates
 
 def svd_2site(tensor, cutoff):
+    """ Do SVD to decomposite one large tensor into 2 site tensors"""
+
     virDim = [tensor.shape[0], tensor.shape[-1]]
     phyDim = [tensor.shape[1], tensor.shape[3]]
     mat = np.reshape(tensor, (virDim[0] * phyDim[0]**2, virDim[1] * phyDim[1]**2))
@@ -29,10 +31,10 @@ def svd_2site(tensor, cutoff):
     v = np.reshape(v, (retain_dim, phyDim[1], phyDim[1], virDim[1]))
     return u, v
 
-# set the orthogonality center of the MPO
 def position(mpo, pos, cutoff):
-    siteNum = len(mpo)
+    """set the orthogonality center of the MPO"""
 
+    siteNum = len(mpo)
     # left normalization
     for i in range(pos):
         virDim = [mpo[i].shape[0], mpo[i].shape[3]]
@@ -74,6 +76,21 @@ def position(mpo, pos, cutoff):
         mpo[i-1] = np.einsum('iabj,js->iabs', mpo[i-1], u)
 
 def gateTEvol(mpo, gateList, ttotal, tstep):
+    """
+    Perform time evolution to MPO using Trotter gates
+
+    Parameters
+    ----------
+    mpo : list of numpy arrays
+        the MPO to be acted on
+    gateList : list of gates
+        gates used in one evolution step
+    ttotal : real float number
+        total time of evolution
+    tstep : real float number
+        time of each evolution step
+    """
+
     nt = int(ttotal/tstep + (1e-9 * (ttotal/tstep)))
     if (np.abs(nt*tstep-ttotal) > 1.0E-9): 
         print("Timestep not commensurate with total time")
@@ -111,8 +128,6 @@ def gateTEvol(mpo, gateList, ttotal, tstep):
                 del mpo[sites[2]]
                 mpo[sites[0]] = mm1
                 mpo[sites[1]] = mm2
-                if g == 40:
-                    print('debug')
                 # do svd again to restore 4 sites
                 position(mpo, sites[0], 1.0E-10)
                 mpo[sites[0]] = np.reshape(mpo[sites[0]], (mpo[sites[0]].shape[0],2,2,2,2,mpo[sites[0]].shape[-1]))

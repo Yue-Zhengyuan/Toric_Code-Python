@@ -112,38 +112,26 @@ def makeGateList(allsites, para):
     siteNum = len(allsites)
     putsite = [False] * siteNum
     swapGates = []
+    # open boundary condition
     # make plaquette gates (together with field)
     if (para['p_g'] != 0):
-        for i in np.arange(1, p.n, 2 * para['nx'] - 1, dtype=int):
+        for i in np.arange(1, p.n - (para['nx']-1), 2 * para['nx'] - 1, dtype=int):
             for j in np.arange(0, para['nx'] - 1, 1, dtype=int):
                 u = i + j
                 l = u + para['nx'] - 1
                 r = l + 1
                 d = l + para['nx']
-                if (d > p.n):
-                    d = d - p.n
                 sites = [u - 1, l - 1, r - 1, d - 1]
                 sites.sort()
                 # create swap gates
-                for k in range(3):
-                    if (sites[k+1] - sites[k] == 1):
-                        break
-                if k == 1:
-                    for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):
-                        swapGates.append(gate([site, site + 1], putsite, 'Swap', para))
-                    for site in np.arange(sites[3]-1, sites[2], -1, dtype=int):
-                        swapGates.append(gate([site, site + 1], putsite, 'Swap', para))
-                    gateSites = [sites[1]-1, sites[1], sites[1]+1, sites[1]+2]
-                # reaching boundary
-                elif k == 2:
-                    for site in np.arange(sites[1], sites[2]-1, 1, dtype=int):
-                        swapGates.append(gate([site, site + 1], putsite, 'Swap', para))
-                    for site in np.arange(sites[0], sites[2]-2, 1, dtype=int):
-                        swapGates.append(gate([site, site + 1], putsite, 'Swap', para))
-                    gateSites = [sites[2]-2, sites[2]-1, sites[2], sites[2]+1]
+                for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):
+                    swapGates.append(gate([site, site + 1], putsite, 'Swap', para))
+                for site in np.arange(sites[3]-1, sites[2], -1, dtype=int):
+                    swapGates.append(gate([site, site + 1], putsite, 'Swap', para))
+                gateSites = [sites[1]-1, sites[1], sites[1]+1, sites[1]+2]
                 for k in range(len(swapGates)):
                     gateList.append(swapGates[k])
-                # evolution gate
+                # evolution gate (plaquette + field)
                 gateList.append(gate(gateSites, putsite, 'tEvolP', para))
                 # put sites back to the original place
                 for k in reversed(range(len(swapGates))):
@@ -152,33 +140,20 @@ def makeGateList(allsites, para):
 
     # make vertex gates
     if (para['v_U'] != 0):
-        for i in np.arange(para['nx'] + 1, p.n - para['nx'] + 2, 2 * para['nx'] - 1, dtype=int):
+        for i in np.arange(para['nx'] + 1, p.n - 3 * para['nx'] + 2, 2 * para['nx'] - 1, dtype=int):
             for j in np.arange(0, para['nx'] - 2, 1, dtype=int):
                 u = i + j
                 l = u + para['nx'] - 1
                 r = l + 1
                 d = l + para['nx']
-                if (d > p.n):
-                    d = d - p.n
                 sites = [u - 1, l - 1, r - 1, d - 1]
                 sites.sort()
                 # create swap gates
-                for k in range(3):
-                    if (sites[k+1] - sites[k] == 1):
-                        pass
-                if k == 1:
-                    for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):
-                        swapGates.append(gate([site, site + 1], putsite, 'Swap', para))
-                    for site in np.arange(sites[3]-1, sites[2], -1, dtype=int):
-                        swapGates.append(gate([site, site + 1], putsite, 'Swap', para))
-                    gateSites = [sites[1]-1, sites[1], sites[1]+1, sites[1]+2]
-                # reaching boundary
-                elif k == 2:
-                    for site in np.arange(sites[1], sites[2]-1, 1, dtype=int):
-                        swapGates.append(gate([site, site + 1], putsite, 'Swap', para))
-                    for site in np.arange(sites[0], sites[2]-2, 1, dtype=int):
-                        swapGates.append(gate([site, site + 1], putsite, 'Swap', para))
-                    gateSites = [sites[2]-2, sites[2]-1, sites[2], sites[2]+1]
+                for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):
+                    swapGates.append(gate([site, site + 1], putsite, 'Swap', para))
+                for site in np.arange(sites[3]-1, sites[2], -1, dtype=int):
+                    swapGates.append(gate([site, site + 1], putsite, 'Swap', para))
+                gateSites = [sites[1]-1, sites[1], sites[1]+1, sites[1]+2]
                 for k in range(len(swapGates)):
                     gateList.append(swapGates[k])
                 # evolution gate
