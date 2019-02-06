@@ -16,7 +16,7 @@ import copy
 
 # index order convention
 # 
-# Tensor
+#  Operator
 #       a      c
 #      _|_    _|_
 #  i --| |----| |--j
@@ -24,12 +24,20 @@ import copy
 #       b      d
 #
 #  index order: iabcdj
-# 
-# Gate
-#       a      c
+#
+#  State
+#       a      b
 #      _|_    _|_
-#      | |----| |
-#      -|-    -|-
+#  i --| |----| |--j
+#      ---    ---
+#
+#  index order: iabj
+# 
+#  (2-site) Gate
+#       a      c
+#      _|______|_
+#      |        |
+#      -|------|-
 #       b      d
 #
 #  index order: abcd
