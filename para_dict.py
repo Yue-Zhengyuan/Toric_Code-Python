@@ -9,7 +9,7 @@
 import numpy as np
 
 # system parameters
-para = {'nx': 20, 'ny': 20, 'v_U': 1.0,
+para = {'nx': 5, 'ny': 5, 'v_U': 1.0,
  'p_g': 1.0, 'hz': 0.0, 'tau': 0.1}
 n = 2 * (para['nx'] - 1) * para['ny']
 # Y-boundary

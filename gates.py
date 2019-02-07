@@ -46,8 +46,21 @@ import copy
 # = 1 + x * (1 + x/2 *(1 + x/3 * (...
 # ~ ((x/3 + 1) * x/2 + 1) * x + 1
 
-# 4-site time-evolution gate
 def toExpH(ham, order):
+    """
+    Create 4-site time-evolution gate using the approximation
+
+        exp(x) = 1 + x +  x^2/2! + x^3/3! ..
+        = 1 + x * (1 + x/2 *(1 + x/3 * (...
+        ~ ((x/3 + 1) * x/2 + 1) * x + 1
+
+    Parameters
+    ---------------
+    ham : list of length 4 of numpy arrays
+        4-site local Hamiltonian
+    order : int
+        approximation order in the Taylor series
+    """
     term = copy.copy(ham)
     unit = np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.iden, p.iden, p.iden)
     for i in np.arange(order, 0, -1, dtype=int):
@@ -103,8 +116,8 @@ class gate(object):
             print('Wrong parameter for gate construction.\n')
             sys.exit()
 
-# clean redundant swap gates
 def cleanGates(gateList):
+    """clean redundant swap gates"""
     j = 0
     while j < len(gateList) - 1:
         if (gateList[j].kind == 'Swap' and gateList[j + 1].kind == 'Swap'
@@ -177,6 +190,5 @@ def makeGateList(allsites, para):
     gateNum = len(gateList)
     for i in reversed(range(gateNum)):
         gateList.append(gateList[i])
-    
     cleanGates(gateList)
     return gateList

@@ -14,6 +14,9 @@ import sys
 import copy
 import time
 
+cutoff = 1.0E-10
+bondm = 100
+
 def applyMPOtoMPS(mpo, mps, cutoff):
     """
     Multiply MPO and MPS
@@ -36,7 +39,7 @@ def applyMPOtoMPS(mpo, mps, cutoff):
             result = np.tensordot(result, group, axes=([0,1],[-2,-1]))
     # restore MPO form by SVD and truncate virtual links
     # set orthogonality center at the middle of the MPO
-    evol.position(result, int(siteNum/2), cutoff)
+    evol.position(result, int(siteNum/2), cutoff, bondm)
     return result
 
 def overlap(mps1, mps2, cutoff):
@@ -68,7 +71,7 @@ def overlap(mps1, mps2, cutoff):
             result = np.tensordot(result, group, axes=([0,1],[-2,-1]))
     # restore MPO form by SVD and truncate virtual links
     # set orthogonality center at the middle of the MPO
-    evol.position(result, int(siteNum/2), cutoff)
+    evol.position(result, int(siteNum/2), cutoff, bondm)
     return result
 
 # create string operator MPO
@@ -84,20 +87,34 @@ for i in range(p.n):
     else:
         str_op[i][0,:,:,0] = p.iden
 
-# create lattice MPS (spin 1/2)
+# create lattice MPS (spin 1/2) |psi>
 # labelling: [site][L vir leg, R vir leg, phys leg]
-mps = []
+psi = []
 for i in range(p.n):
-    str_op.append(np.zeros((1,1,1), dtype=complex))
+    psi.append(np.zeros((1,2,1), dtype=complex))
+    # with all spin up
+    psi[i][0,0,0] = 1.0
+    # with all spin down
+    # psi[i][0,1,0] = 1.0
 
 # generate gates for one step of time evolution
 t_start = time.time()
 gateList = gates.makeGateList(str_op, p.para)
 t_end = time.time()
 print('Gate generation time: ', t_end-t_start, ' s')
-# apply gates to the string operator MPO
+print('Number of gates: ', len(gateList))
+
+
+# apply gates to the MPS to get |phi> = exp(-iHt)|psi>
 t_start = time.time()
-evol.gateTEvol(mps, gateList, 1.0, p.para['tau'])
+evol.gateTEvol(psi, gateList, 0.1, p.para['tau'], cutoff, bondm)
 t_end = time.time()
 print('Gate evolution time: ', t_end-t_start, ' s')
+
+# apply string operator to MPS to get |xi> = S|phi>
+xi = applyMPOtoMPS(str_op, psi, 1.0E-10)
+
+# calculate <phi|xi> = <psi| exp(+iHt) S exp(-iHt) |psi>
+result = overlap(psi, xi, 1.0E-10)
+
 print('Hello world')
