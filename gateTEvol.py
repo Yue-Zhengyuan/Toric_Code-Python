@@ -13,6 +13,7 @@ from itertools import product
 import para_dict as p
 import copy
 import gates
+import mps
 
 def svd_2site(tensor, cutoff, bondm):
     """
@@ -22,8 +23,8 @@ def svd_2site(tensor, cutoff, bondm):
     ---------------
     tensor : numpy array
         the 2-site tensor to be decomposed
-    cutoff: float
-        precision for SVD cutoff
+    cutoff : float
+        largest value of s_max/s_min
     bondm : int
         largest virtual bond dimension allowed
     """
@@ -33,79 +34,21 @@ def svd_2site(tensor, cutoff, bondm):
     mat = np.reshape(tensor, (virDim[0] * phyDim, virDim[1] * phyDim))
 
     u,s,v = np.linalg.svd(mat)
-    retain_dim = min(bondm, len(np.where(np.abs(s[:]) > cutoff)[0]))
-    s = s[0:retain_dim]
+    u,s,v,retain_dim = mps.svd_truncate(u, s, v, cutoff, bondm)
     mat_s = np.diag(s)
-    u = np.dot(u[:, 0:retain_dim], np.sqrt(mat_s))
+    u = np.dot(u, np.sqrt(mat_s))
+    v = np.dot(np.sqrt(mat_s), v)
     u = np.reshape(u, (virDim[0], phyDim, retain_dim))
-    v = np.dot(np.sqrt(mat_s), v[0:retain_dim, :])
     v = np.reshape(v, (retain_dim, phyDim, virDim[1]))
     return u, v
 
-def position(mps, pos, cutoff, bondm):
-    """
-    set the orthogonality center of the MPS
-    
-    Parameters
-    ----------------
-    mps : list of numpy arrays
-        the MPS to be acted on
-    pos : int
-        the position of the orthogonality center
-    cutoff: float
-        precision for SVD cutoff
-    bondm : int
-        largest virtual bond dimension allowed
-    """
-
-    siteNum = len(mps)
-    # left normalization
-    for i in range(pos):
-        virDim = [mps[i].shape[0], mps[i].shape[-1]]
-        phyDim = mps[i].shape[1]
-        # i,j: virtual leg; a: physical leg
-        mat = np.einsum('iaj->aij', mps[i])
-        mat = np.reshape(mps[i], (phyDim*virDim[0], virDim[1]))
-        a,s,v = np.linalg.svd(mat)
-        retain_dim = min(bondm, len(np.where(np.abs(s[:]) > cutoff)[0]))
-        s = s[0:retain_dim]
-        a = a[:, 0:retain_dim]
-        # replace mps[i] with a
-        a = np.reshape(a, (phyDim,virDim[0],retain_dim))
-        a = np.einsum('ais->ias', a)
-        mps[i] = a
-        # update mps[i+1]
-        mat_s = np.diag(s)
-        v = np.dot(mat_s, v[0:retain_dim, :])
-        mps[i+1] = np.einsum('si,iaj->saj', v, mps[i+1])
-
-    # right normalization
-    for i in np.arange(siteNum-1, pos, -1, dtype=int):
-        virDim = [mps[i].shape[0], mps[i].shape[-1]]
-        phyDim = mps[i].shape[1]
-        # i,j: virtual leg; a: physical leg
-        mat = np.einsum('iaj->ija', mps[i])
-        mat = np.reshape(mps[i], (virDim[0], virDim[1]*phyDim))
-        u,s,b = np.linalg.svd(mat)
-        retain_dim = min(bondm, len(np.where(np.abs(s[:]) > cutoff)[0]))
-        s = s[0:retain_dim]
-        b = b[0:retain_dim, :]
-        # replace mps[i] with b
-        b = np.reshape(b, (retain_dim,virDim[1],phyDim))
-        b = np.einsum('sja->saj', b)
-        mps[i] = b
-        # update mps[i-1]
-        mat_s = np.diag(s)
-        u = np.dot(u[:, 0:retain_dim], mat_s)
-        mps[i-1] = np.einsum('iaj,js->ias', mps[i-1], u)
-
-def gateTEvol(mps, gateList, ttotal, tstep, cutoff, bondm):
+def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
     """
     Perform time evolution to MPS using Trotter gates
 
     Parameters
     ----------
-    mps : list of numpy arrays
+    psi : list of numpy arrays
         the MPS to be acted on
     gateList : list of gates
         gates used in one evolution step
@@ -114,11 +57,11 @@ def gateTEvol(mps, gateList, ttotal, tstep, cutoff, bondm):
     tstep : real float number
         time of each evolution step
     cutoff: float
-        precision for SVD cutoff
+        largest value of s_max/s_min
     bondm : int
         largest virtual bond dimension allowed
     """
-
+    phi = copy.copy(psi)
     nt = int(ttotal/tstep + (1e-9 * (ttotal/tstep)))
     if (np.abs(nt*tstep-ttotal) > 1.0E-9): 
         print("Timestep not commensurate with total time")
@@ -131,7 +74,12 @@ def gateTEvol(mps, gateList, ttotal, tstep, cutoff, bondm):
             sites = gateList[g].sites
             # swap gate
             if len(sites) == 2:
-                position(mps, sites[0], cutoff, bondm)
+                # gauging and normalizing
+                mps.position(phi, sites[0], cutoff, bondm)
+                # norm = np.tensordot(phi[sites[0]], np.conj(phi[sites[0]]), ([0,1,2],[0,1,2]))
+                # norm = np.sqrt(norm)
+                # phi /= norm
+                # phi = list(phi)
                 # contraction
                 #
                 #       a      c
@@ -143,14 +91,19 @@ def gateTEvol(mps, gateList, ttotal, tstep, cutoff, bondm):
                 #  i --| |-k--| |--j
                 #      ---    ---
                 #
-                ten_AA = np.einsum('ibk,kdj,abcd->iacj',mps[sites[0]],mps[sites[1]],gate)
+                ten_AA = np.einsum('ibk,kdj,abcd->iacj',phi[sites[0]],phi[sites[1]],gate)
                 # do svd to restore 2 sites
                 m1, m2 = svd_2site(ten_AA, cutoff, bondm)
-                mps[sites[0]] = m1
-                mps[sites[1]] = m2
+                phi[sites[0]] = m1
+                phi[sites[1]] = m2
             # time evolution gate
             elif len(sites) == 4:
-                position(mps, sites[1], cutoff, bondm)
+                # gauging and normalizing
+                mps.position(phi, sites[1], cutoff, bondm)
+                # norm = np.tensordot(phi[sites[1]], np.conj(phi[sites[1]]), ([0,1,2],[0,1,2]))
+                # norm = np.sqrt(norm)
+                # phi /= norm
+                # phi = list(phi)
                 # contraction
                 #
                 #       a      c      e      g
@@ -162,29 +115,32 @@ def gateTEvol(mps, gateList, ttotal, tstep, cutoff, bondm):
                 #  i --| |-j--| |--k-| |-l--| |-- m
                 #      ---    ---    ---    ---
                 #
-                ten_AAAA = np.einsum('ibj,jdk,kfl,lhm->ibdfhm',mps[sites[0]],mps[sites[1]],mps[sites[2]],mps[sites[3]])
+                ten_AAAA = np.einsum('ibj,jdk,kfl,lhm->ibdfhm',phi[sites[0]],phi[sites[1]],phi[sites[2]],phi[sites[3]])
                 ten_AAAA = np.einsum('ibdfhm,abcdefgh->iacegm',ten_AAAA,gate)
                 # combine 4 sites into 2 sites
                 ten_AAAA = np.reshape(ten_AAAA, (ten_AAAA.shape[0],4,4,ten_AAAA.shape[-1]))
                 mm1, mm2 = svd_2site(ten_AAAA, cutoff, bondm)
                 # replace sites: 
-                del mps[sites[3]]
-                del mps[sites[2]]
-                mps[sites[0]] = mm1
-                mps[sites[1]] = mm2
+                del phi[sites[3]]
+                del phi[sites[2]]
+                phi[sites[0]] = mm1
+                phi[sites[1]] = mm2
                 # do svd again to restore 4 sites
-                position(mps, sites[0], cutoff, bondm)
-                mps[sites[0]] = np.reshape(mps[sites[0]], (mps[sites[0]].shape[0],2,2,mps[sites[0]].shape[-1]))
-                m1, m2 = svd_2site(mps[sites[0]], cutoff, bondm)
-                mps[sites[0]] = m1
-                mps.insert(sites[1], m2)
+                mps.position(phi, sites[0], cutoff, bondm)
+                phi[sites[0]] = np.reshape(phi[sites[0]], (phi[sites[0]].shape[0],2,2,phi[sites[0]].shape[-1]))
+                m1, m2 = svd_2site(phi[sites[0]], cutoff, bondm)
+                phi[sites[0]] = m1
+                phi.insert(sites[1], m2)
 
-                position(mps, sites[2], cutoff, bondm)
-                mps[sites[2]] = np.reshape(mps[sites[2]], (mps[sites[2]].shape[0],2,2,mps[sites[2]].shape[-1]))
-                m3, m4 = svd_2site(mps[sites[2]], cutoff, bondm)
-                mps[sites[2]] = m3
-                mps.insert(sites[3], m4)
+                mps.position(phi, sites[2], cutoff, bondm)
+                phi[sites[2]] = np.reshape(phi[sites[2]], (phi[sites[2]].shape[0],2,2,phi[sites[2]].shape[-1]))
+                m3, m4 = svd_2site(phi[sites[2]], cutoff, bondm)
+                phi[sites[2]] = m3
+                phi.insert(sites[3], m4)
             # error handling
             else:
                 print('Wrong number of sites')
                 sys.exit()
+    # return a guaged and normalized MPS |phi>
+    phi = mps.normalize(phi, cutoff, bondm)
+    return phi

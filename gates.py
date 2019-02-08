@@ -77,7 +77,7 @@ class gate(object):
     # para: parameter dictionary
     def __init__(self, sites, putsite, kind, para):
         # members of Gate
-        self.sites = sites.copy()
+        self.sites = copy.copy(sites)
         self.sites.sort()
         self.kind = kind
         siteNum = len(self.sites)
