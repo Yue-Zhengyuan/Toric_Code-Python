@@ -50,7 +50,7 @@ print('Number of gates: ', len(gateList))
 
 # apply gates to the MPS to get new |phi> = exp(-iHt)|psi>
 t_start = time.time()
-phi = evol.gateTEvol(psi, gateList, 0.1, p.para['tau'], cutoff, bondm)
+phi = evol.gateTEvol(psi, gateList, 1, p.para['tau'], cutoff, bondm)
 t_end = time.time()
 print('Gate evolution time: ', t_end-t_start, ' s')
 result = mps.overlap(phi, phi, cutoff, bondm)

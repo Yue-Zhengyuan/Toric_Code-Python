@@ -75,7 +75,7 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
             # swap gate
             if len(sites) == 2:
                 # gauging and normalizing
-                mps.position(phi, sites[0], cutoff, bondm)
+                phi = mps.position(phi, sites[0], cutoff, bondm)
                 # norm = np.tensordot(phi[sites[0]], np.conj(phi[sites[0]]), ([0,1,2],[0,1,2]))
                 # norm = np.sqrt(norm)
                 # phi /= norm
@@ -99,7 +99,7 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
             # time evolution gate
             elif len(sites) == 4:
                 # gauging and normalizing
-                mps.position(phi, sites[1], cutoff, bondm)
+                phi = mps.position(phi, sites[1], cutoff, bondm)
                 # norm = np.tensordot(phi[sites[1]], np.conj(phi[sites[1]]), ([0,1,2],[0,1,2]))
                 # norm = np.sqrt(norm)
                 # phi /= norm
@@ -126,13 +126,13 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
                 phi[sites[0]] = mm1
                 phi[sites[1]] = mm2
                 # do svd again to restore 4 sites
-                mps.position(phi, sites[0], cutoff, bondm)
+                phi = mps.position(phi, sites[0], cutoff, bondm)
                 phi[sites[0]] = np.reshape(phi[sites[0]], (phi[sites[0]].shape[0],2,2,phi[sites[0]].shape[-1]))
                 m1, m2 = svd_2site(phi[sites[0]], cutoff, bondm)
                 phi[sites[0]] = m1
                 phi.insert(sites[1], m2)
 
-                mps.position(phi, sites[2], cutoff, bondm)
+                phi = mps.position(phi, sites[2], cutoff, bondm)
                 phi[sites[2]] = np.reshape(phi[sites[2]], (phi[sites[2]].shape[0],2,2,phi[sites[2]].shape[-1]))
                 m3, m4 = svd_2site(phi[sites[2]], cutoff, bondm)
                 phi[sites[2]] = m3

@@ -37,13 +37,13 @@ def svd_truncate(u, s, v, cutoff, bondm):
     v = v[0:retain_dim, :]
     return u, s, v, retain_dim
 
-def position(mps, pos, cutoff, bondm):
+def position(psi, pos, cutoff, bondm):
     """
     set the orthogonality center of the MPS
     
     Parameters
     ----------------
-    mps : list of numpy arrays
+    psi : list of numpy arrays
         the MPS to be acted on
     pos : int
         the position of the orthogonality center
@@ -52,43 +52,44 @@ def position(mps, pos, cutoff, bondm):
     bondm : int
         largest virtual bond dimension allowed
     """
-
-    siteNum = len(mps)
+    phi = copy.copy(psi)
+    siteNum = len(phi)
     # left normalization
     for i in range(pos):
-        virDim = [mps[i].shape[0], mps[i].shape[-1]]
-        phyDim = mps[i].shape[1]
+        virDim = [phi[i].shape[0], phi[i].shape[-1]]
+        phyDim = phi[i].shape[1]
         # i,j: virtual leg; a: physical leg
-        mat = np.einsum('iaj->aij', mps[i])
-        mat = np.reshape(mps[i], (phyDim*virDim[0], virDim[1]))
+        mat = np.einsum('iaj->aij', phi[i])
+        mat = np.reshape(phi[i], (phyDim*virDim[0], virDim[1]))
         a,s,v = np.linalg.svd(mat)
         a,s,v,retain_dim = svd_truncate(a, s, v, cutoff, bondm)
         # replace mps[i] with a
         a = np.reshape(a, (phyDim,virDim[0],retain_dim))
         a = np.einsum('ais->ias', a)
-        mps[i] = a
+        phi[i] = a
         # update mps[i+1]
         mat_s = np.diag(s)
         v = np.dot(mat_s, v)
-        mps[i+1] = np.einsum('si,iaj->saj', v, mps[i+1])
+        phi[i+1] = np.einsum('si,iaj->saj', v, phi[i+1])
 
     # right normalization
     for i in np.arange(siteNum-1, pos, -1, dtype=int):
-        virDim = [mps[i].shape[0], mps[i].shape[-1]]
-        phyDim = mps[i].shape[1]
+        virDim = [phi[i].shape[0], phi[i].shape[-1]]
+        phyDim = phi[i].shape[1]
         # i,j: virtual leg; a: physical leg
-        mat = np.einsum('iaj->ija', mps[i])
-        mat = np.reshape(mps[i], (virDim[0], virDim[1]*phyDim))
+        mat = np.einsum('iaj->ija', phi[i])
+        mat = np.reshape(phi[i], (virDim[0], virDim[1]*phyDim))
         u,s,b = np.linalg.svd(mat)
         u,s,b,retain_dim = svd_truncate(u, s, b, cutoff, bondm)
         # replace mps[i] with b
         b = np.reshape(b, (retain_dim,virDim[1],phyDim))
         b = np.einsum('sja->saj', b)
-        mps[i] = b
+        phi[i] = b
         # update mps[i-1]
         mat_s = np.diag(s)
         u = np.dot(u, mat_s)
-        mps[i-1] = np.einsum('iaj,js->ias', mps[i-1], u)
+        phi[i-1] = np.einsum('iaj,js->ias', phi[i-1], u)
+    return phi
     
 def normalize(psi, cutoff, bondm):
     """
