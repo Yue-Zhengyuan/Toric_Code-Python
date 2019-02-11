@@ -16,7 +16,7 @@ import copy
 
 # index order convention
 # 
-# Tensor
+#  Operator
 #       a      c
 #      _|_    _|_
 #  i --| |----| |--j
@@ -24,12 +24,20 @@ import copy
 #       b      d
 #
 #  index order: iabcdj
-# 
-# Gate
-#       a      c
+#
+#  State
+#       a      b
 #      _|_    _|_
-#      | |----| |
-#      -|-    -|-
+#  i --| |----| |--j
+#      ---    ---
+#
+#  index order: iabj
+# 
+#  (2-site) Gate
+#       a      c
+#      _|______|_
+#      |        |
+#      -|------|-
 #       b      d
 #
 #  index order: abcd
@@ -38,8 +46,21 @@ import copy
 # = 1 + x * (1 + x/2 *(1 + x/3 * (...
 # ~ ((x/3 + 1) * x/2 + 1) * x + 1
 
-# 4-site time-evolution gate
 def toExpH(ham, order):
+    """
+    Create 4-site time-evolution gate using the approximation
+
+        exp(x) = 1 + x +  x^2/2! + x^3/3! ..
+        = 1 + x * (1 + x/2 *(1 + x/3 * (...
+        ~ ((x/3 + 1) * x/2 + 1) * x + 1
+
+    Parameters
+    ---------------
+    ham : list of length 4 of numpy arrays
+        4-site local Hamiltonian
+    order : int
+        approximation order in the Taylor series
+    """
     term = copy.copy(ham)
     unit = np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.iden, p.iden, p.iden)
     for i in np.arange(order, 0, -1, dtype=int):
@@ -49,14 +70,12 @@ def toExpH(ham, order):
     return gate
 
 class gate(object):
-    # input parameters
-    # sites: involved sites
-    # putsite: marking sites already applied to magnetic field
-    # kind: tEvolP (plaquette with field) / tEvolV (vertex) / Swap
-    # para: parameter dictionary
+    """
+    Class of time-evolution/swap gates
+    """
     def __init__(self, sites, putsite, kind, para):
         # members of Gate
-        self.sites = sites.copy()
+        self.sites = copy.copy(sites)
         self.sites.sort()
         self.kind = kind
         siteNum = len(self.sites)
@@ -76,13 +95,13 @@ class gate(object):
             ham = np.einsum('ab,cd,ef,gh->abcdefgh', p.sx, p.sx, p.sx, p.sx) * (-para['p_g'])
             # field part
             if (not putsite[self.sites[0]]):
-                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.sz, p.iden, p.iden, p.iden) * (-para['hz'])
+                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.sx, p.iden, p.iden, p.iden) * (-para['hx'])
             if (not putsite[self.sites[1]]):
-                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.sz, p.iden, p.iden) * (-para['hz'])
+                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.sx, p.iden, p.iden) * (-para['hx'])
             if (not putsite[self.sites[2]]):
-                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.iden, p.sz, p.iden) * (-para['hz'])
+                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.iden, p.sx, p.iden) * (-para['hx'])
             if (not putsite[self.sites[3]]):
-                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.iden, p.iden, p.sz) * (-para['hz'])
+                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.iden, p.iden, p.sx) * (-para['hx'])
             ham *= (-para['tau'] / 2) * 1.0j
             self.gate = toExpH(ham, expOrder)
         # Vertex operator
@@ -95,8 +114,8 @@ class gate(object):
             print('Wrong parameter for gate construction.\n')
             sys.exit()
 
-# clean redundant swap gates
 def cleanGates(gateList):
+    """clean redundant swap gates"""
     j = 0
     while j < len(gateList) - 1:
         if (gateList[j].kind == 'Swap' and gateList[j + 1].kind == 'Swap'
@@ -106,8 +125,17 @@ def cleanGates(gateList):
         else:
             j = j + 1
 
-
 def makeGateList(allsites, para):
+    """
+    Create time-evolution/swap gate list
+
+    Parameters
+    ---------------
+    allsites : list of boolean variables
+        MPS/MPO to be acted on
+    para : dictionary
+        parameter dictionary
+    """
     gateList = []
     siteNum = len(allsites)
     putsite = [False] * siteNum
@@ -169,6 +197,5 @@ def makeGateList(allsites, para):
     gateNum = len(gateList)
     for i in reversed(range(gateNum)):
         gateList.append(gateList[i])
-    
     cleanGates(gateList)
     return gateList
