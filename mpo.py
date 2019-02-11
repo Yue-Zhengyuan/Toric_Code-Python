@@ -11,6 +11,7 @@ import sys
 import copy
 import mps
 import gates
+from itertools import product
 
 def position(op, pos, length, cutoff, bondm):
     """
@@ -32,8 +33,13 @@ def position(op, pos, length, cutoff, bondm):
     """
     op2 = copy.copy(op)
     siteNum = len(op2)
-    left = pos - int(length/2)
-    right = pos +  int(length/2)
+    if siteNum % 2 == 0:
+        left = pos - int(length/2) + 1
+        right = pos +  int(length/2)
+    else:
+        left = pos - int(length/2)
+        right = pos +  int(length/2)
+
     if left < 0:
         left = 0
         right = length - 1
@@ -138,7 +144,7 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
             gate2 = np.conj(gate)
             # swap gate
             if len(sites) == 2:
-                op2 = position(op2, sites[0], 10, cutoff, bondm)
+                # op2 = position(op2, sites[0], 10, cutoff, bondm)
                 # contraction
                 #
                 #       a      c
@@ -164,7 +170,7 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
             # time evolution gate
             elif len(sites) == 4:
                 # gauging and normalizing
-                op2 = position(op2, sites[1], 10, cutoff, bondm)
+                # op2 = position(op2, sites[1], 10, cutoff, bondm)
                 # contraction
                 #
                 #       a      c      e      g
@@ -182,8 +188,8 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
                 #       t      v      x      z
                 #
                 ten_AAAA = np.einsum('ibsj,jduk,kfwl,lhym->ibsdufwhym',op2[sites[0]],op2[sites[1]],op2[sites[2]],op2[sites[3]])
-                ten_AAAA = np.tensordot(gate,ten_AAAA,([1,3,5,7],[1,3,5,7]))
-                ten_AAAA = np.tensordot(ten_AAAA,gate2,([2,4,6,8],[0,2,4,6]))
+                ten_AAAA = np.einsum('abcdefgh,ibsdufwhym->iascuewgym',gate,ten_AAAA)
+                ten_AAAA = np.einsum('iascuewgym,stuvwxyz->iatcvexgzm',ten_AAAA,gate2)
                 # combine 4 sites into 2 sites
                 ten_AAAA = np.reshape(ten_AAAA, (ten_AAAA.shape[0],4,4,4,4,ten_AAAA.shape[-1]))
                 mm1, mm2 = svd_2site(ten_AAAA, cutoff, bondm)
@@ -193,13 +199,13 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
                 op2[sites[0]] = mm1
                 op2[sites[1]] = mm2
                 # do svd again to restore 4 sites
-                op2 = position(op2, sites[0], 10, cutoff, bondm)
+                # op2 = position(op2, sites[0], 10, cutoff, bondm)
                 op2[sites[0]] = np.reshape(op2[sites[0]], (op2[sites[0]].shape[0],2,2,2,2,op2[sites[0]].shape[-1]))
                 m1, m2 = svd_2site(op2[sites[0]], cutoff, bondm)
                 op2[sites[0]] = m1
                 op2.insert(sites[1], m2)
 
-                op2 = position(op2, sites[2], 10, cutoff, bondm)
+                # op2 = position(op2, sites[2], 10, cutoff, bondm)
                 op2[sites[2]] = np.reshape(op2[sites[2]], (op2[sites[2]].shape[0],2,2,2,2,op2[sites[2]].shape[-1]))
                 m3, m4 = svd_2site(op2[sites[2]], cutoff, bondm)
                 op2[sites[2]] = m3
@@ -210,3 +216,23 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
                 sys.exit()
     
     return op2
+
+def save_to_file(op, filename):
+    """
+    Save MPO (shape and nonzero elements) to (txt) file
+
+    Parameters
+    ----------
+    op : list of numpy arrays
+        the MPO to be written to file
+    filename : string
+        name of the output file
+    """
+    with open(filename, 'a+') as f:
+        for i in range(len(op)):
+            f.write(str(i) + '\t' + str(op[i].shape) + '\n')
+            for m,n,p,q in product(range(op[i].shape[0]),range(op[i].shape[1]),range(op[i].shape[2]),range(op[i].shape[3])):
+                if op[i][m,n,p,q] != 0:
+                    f.write(str(tuple([m,n,p,q])) + '\t')
+                    f.write(str(op[i][m,n,p,q]) + '\n')
+    

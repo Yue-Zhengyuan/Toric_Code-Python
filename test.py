@@ -9,8 +9,8 @@
 import numpy as np
 import gates
 import para_dict as p
-import gateTEvol as evol
 import mps
+import mpo
 import sys
 import copy
 import time
@@ -31,16 +31,6 @@ for i in range(p.n):
     else:
         str_op[i][0,:,:,0] = p.iden
 
-# create lattice MPS (spin 1/2) |psi>
-# labelling: [site][L vir leg, R vir leg, phys leg]
-psi = []
-for i in range(p.n):
-    psi.append(np.zeros((1,2,1), dtype=complex))
-    # with all spin up
-    psi[i][0,0,0] = 1.0
-    # with all spin down
-    # psi[i][0,1,0] = 1.0
-
 # generate gates for one step of time evolution
 t_start = time.time()
 gateList = gates.makeGateList(str_op, p.para)
@@ -50,14 +40,10 @@ print('Number of gates: ', len(gateList))
 
 # apply gates to the MPS to get new |phi> = exp(-iHt)|psi>
 t_start = time.time()
-phi = evol.gateTEvol(psi, gateList, 0.01, p.para['tau'], cutoff, bondm)
+str_op = mpo.gateTEvol(str_op, gateList, 0.01, p.para['tau'], cutoff, bondm)
 t_end = time.time()
 print('Gate evolution time: ', t_end-t_start, ' s')
-result = mps.overlap(phi, phi, cutoff, bondm)
 
 # write resulting MPS |phi> into txt file
-siteNum = len(phi)
-output = np.asarray(phi)
-output = np.reshape(output, (siteNum, 2))
-np.savetxt('phi.txt', output, fmt='%.8e',delimiter='\t')
+mpo.save_to_file(str_op, 'string_operator.txt')
 print('Hello world')
