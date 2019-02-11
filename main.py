@@ -17,8 +17,9 @@ import time
 
 cutoff = 100
 bondm = 32
+para = p.para
 
-# create string operator MPO
+# create string operator MPO (S)
 # labelling: [site][L vir leg, R vir leg, U phys leg, D phys leg]
 # len(MPO): number of sites
 str_op = []
@@ -31,34 +32,39 @@ for i in range(p.n):
     else:
         str_op[i][0,:,:,0] = p.iden
 
-# create lattice MPS (spin 1/2) |psi>
+# create lattice ground state MPS (spin 1/2) |psi>
 # labelling: [site][L vir leg, R vir leg, phys leg]
 psi = []
 for i in range(p.n):
     psi.append(np.zeros((1,2,1), dtype=complex))
-    # with all spin up
+    # all spin up
     psi[i][0,0,0] = 1.0
-    # with all spin down
-    # psi[i][0,1,0] = 1.0
 
-# generate gates for one step of time evolution
-t_start = time.time()
-gateList = gates.makeGateList(str_op, p.para)
-t_end = time.time()
-print('Gate generation time: ', t_end-t_start, ' s')
-print('Number of gates: ', len(gateList))
+# use adiabatic continuation to find the corresponding
+# ground state |phi> when the magnetic field is on
+phi = copy.copy(psi)
+stepNum = int(p.para['ttotal'] / p.para['tau'])
+for hx in np.linspace(0, -p.para['hx'], num=stepNum, dtype=float):
+    # generate gates for one step of time evolution
+    para['hx'] = hx
+    gateList = gates.makeGateList(str_op, para)
+    phi = evol.gateTEvol(phi, gateList, para['tau'], para['tau'], cutoff, bondm)
 
-# apply gates to the MPS to get new |phi> = exp(-iHt)|psi>
-t_start = time.time()
-phi = evol.gateTEvol(psi, gateList, 1, p.para['tau'], cutoff, bondm)
-t_end = time.time()
-print('Gate evolution time: ', t_end-t_start, ' s')
-result = mps.overlap(phi, phi, cutoff, bondm)
+# based on |phi>, doing quasi-adiabatic continuation to find |xi>
+xi = copy.copy(phi)
+stepNum = 5
+for hx in np.linspace(0, -p.para['hx'], num=stepNum, dtype=float):
+    # generate gates for one step of time evolution
+    para['hx'] = hx
+    gateList = gates.makeGateList(str_op, para)
+    xi = evol.gateTEvol(xi, gateList, 1/stepNum, para['tau'], cutoff, bondm)
 
-# apply string operator to MPS to get |xi> = S|phi>
-xi = mps.applyMPOtoMPS(str_op, phi, cutoff, bondm)
+# calculate <psi|S|psi>
+res1 = mps.applyMPOtoMPS(str_op, psi, cutoff, bondm)
+norm1 = mps.overlap(psi, res1, cutoff, bondm)
 
-# calculate <phi|xi> = <psi|exp(+iHt) S exp(-iHt)|psi>
-result = mps.overlap(phi, xi, cutoff, bondm)
+# calculate <xi|S|xi>
+res2 = mps.applyMPOtoMPS(str_op, xi, cutoff, bondm)
+norm2 = mps.overlap(xi, res2, cutoff, bondm)
 
 print('Hello world')

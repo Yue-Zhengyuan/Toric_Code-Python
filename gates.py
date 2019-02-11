@@ -97,13 +97,13 @@ class gate(object):
             ham = np.einsum('ab,cd,ef,gh->abcdefgh', p.sx, p.sx, p.sx, p.sx) * (-para['p_g'])
             # field part
             if (not putsite[self.sites[0]]):
-                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.sz, p.iden, p.iden, p.iden) * (-para['hz'])
+                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.sx, p.iden, p.iden, p.iden) * (-para['hx'])
             if (not putsite[self.sites[1]]):
-                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.sz, p.iden, p.iden) * (-para['hz'])
+                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.sx, p.iden, p.iden) * (-para['hx'])
             if (not putsite[self.sites[2]]):
-                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.iden, p.sz, p.iden) * (-para['hz'])
+                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.iden, p.sx, p.iden) * (-para['hx'])
             if (not putsite[self.sites[3]]):
-                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.iden, p.iden, p.sz) * (-para['hz'])
+                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.iden, p.iden, p.sx) * (-para['hx'])
             ham *= (-para['tau'] / 2) * 1.0j
             self.gate = toExpH(ham, expOrder)
         # Vertex operator
