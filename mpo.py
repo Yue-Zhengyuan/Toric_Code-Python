@@ -10,6 +10,7 @@ import numpy as np
 import sys
 import copy
 import mps
+import gates
 
 def position(op, pos, length, cutoff, bondm):
     """
@@ -123,7 +124,7 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
     bondm : int
         largest virtual bond dimension allowed
     """
-    phi = copy.copy(op)
+    op2 = copy.copy(op)
     nt = int(ttotal/tstep + (1e-9 * (ttotal/tstep)))
     if (np.abs(nt*tstep-ttotal) > 1.0E-9): 
         print("Timestep not commensurate with total time")
@@ -134,14 +135,10 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
         for g in range(gateNum):
             gate = gateList[g].gate
             sites = gateList[g].sites
+            gate2 = np.conj(gate)
             # swap gate
             if len(sites) == 2:
-                # gauging and normalizing
-                phi = mps.position(phi, sites[0], cutoff, bondm)
-                # norm = np.tensordot(phi[sites[0]], np.conj(phi[sites[0]]), ([0,1,2],[0,1,2]))
-                # norm = np.sqrt(norm)
-                # phi /= norm
-                # phi = list(phi)
+                op2 = position(op2, sites[0], 10, cutoff, bondm)
                 # contraction
                 #
                 #       a      c
@@ -151,21 +148,23 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
                 #       b      d
                 #      _|_    _|_
                 #  i --| |-k--| |--j
-                #      ---    ---
+                #      -|-    -|-
+                #       e      g
+                #      _|______|_
+                #      |        |
+                #      -|------|-
+                #       f      h
                 #
-                ten_AA = np.einsum('ibk,kdj,abcd->iacj',phi[sites[0]],phi[sites[1]],gate)
+                ten_AA = np.einsum('ibek,kdgj,abcd->iaecgj',op2[sites[0]],op2[sites[1]],gate)
+                ten_AA = np.einsum('iaecgj,efgh->iafchj',ten_AA,gate2)
                 # do svd to restore 2 sites
                 m1, m2 = svd_2site(ten_AA, cutoff, bondm)
-                phi[sites[0]] = m1
-                phi[sites[1]] = m2
+                op2[sites[0]] = m1
+                op2[sites[1]] = m2
             # time evolution gate
             elif len(sites) == 4:
                 # gauging and normalizing
-                phi = mps.position(phi, sites[1], cutoff, bondm)
-                # norm = np.tensordot(phi[sites[1]], np.conj(phi[sites[1]]), ([0,1,2],[0,1,2]))
-                # norm = np.sqrt(norm)
-                # phi /= norm
-                # phi = list(phi)
+                op2 = position(op2, sites[1], 10, cutoff, bondm)
                 # contraction
                 #
                 #       a      c      e      g
@@ -175,34 +174,39 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
                 #       b      d      f      h
                 #      _|_    _|_    _|_    _|_
                 #  i --| |-j--| |--k-| |-l--| |-- m
-                #      ---    ---    ---    ---
+                #      -|-    -|-    -|-    -|-
+                #       s      u      w      y
+                #      _|______|______|______|_
+                #      |                      |
+                #      -|------|------|------|-
+                #       t      v      x      z
                 #
-                ten_AAAA = np.einsum('ibj,jdk,kfl,lhm->ibdfhm',phi[sites[0]],phi[sites[1]],phi[sites[2]],phi[sites[3]])
-                ten_AAAA = np.einsum('ibdfhm,abcdefgh->iacegm',ten_AAAA,gate)
+                ten_AAAA = np.einsum('ibsj,jduk,kfwl,lhym->ibsdufwhym',op2[sites[0]],op2[sites[1]],op2[sites[2]],op2[sites[3]])
+                ten_AAAA = np.tensordot(gate,ten_AAAA,([1,3,5,7],[1,3,5,7]))
+                ten_AAAA = np.tensordot(ten_AAAA,gate2,([2,4,6,8],[0,2,4,6]))
                 # combine 4 sites into 2 sites
-                ten_AAAA = np.reshape(ten_AAAA, (ten_AAAA.shape[0],4,4,ten_AAAA.shape[-1]))
+                ten_AAAA = np.reshape(ten_AAAA, (ten_AAAA.shape[0],4,4,4,4,ten_AAAA.shape[-1]))
                 mm1, mm2 = svd_2site(ten_AAAA, cutoff, bondm)
                 # replace sites: 
-                del phi[sites[3]]
-                del phi[sites[2]]
-                phi[sites[0]] = mm1
-                phi[sites[1]] = mm2
+                del op2[sites[3]]
+                del op2[sites[2]]
+                op2[sites[0]] = mm1
+                op2[sites[1]] = mm2
                 # do svd again to restore 4 sites
-                phi = mps.position(phi, sites[0], cutoff, bondm)
-                phi[sites[0]] = np.reshape(phi[sites[0]], (phi[sites[0]].shape[0],2,2,phi[sites[0]].shape[-1]))
-                m1, m2 = svd_2site(phi[sites[0]], cutoff, bondm)
-                phi[sites[0]] = m1
-                phi.insert(sites[1], m2)
+                op2 = position(op2, sites[0], 10, cutoff, bondm)
+                op2[sites[0]] = np.reshape(op2[sites[0]], (op2[sites[0]].shape[0],2,2,2,2,op2[sites[0]].shape[-1]))
+                m1, m2 = svd_2site(op2[sites[0]], cutoff, bondm)
+                op2[sites[0]] = m1
+                op2.insert(sites[1], m2)
 
-                phi = mps.position(phi, sites[2], cutoff, bondm)
-                phi[sites[2]] = np.reshape(phi[sites[2]], (phi[sites[2]].shape[0],2,2,phi[sites[2]].shape[-1]))
-                m3, m4 = svd_2site(phi[sites[2]], cutoff, bondm)
-                phi[sites[2]] = m3
-                phi.insert(sites[3], m4)
+                op2 = position(op2, sites[2], 10, cutoff, bondm)
+                op2[sites[2]] = np.reshape(op2[sites[2]], (op2[sites[2]].shape[0],2,2,2,2,op2[sites[2]].shape[-1]))
+                m3, m4 = svd_2site(op2[sites[2]], cutoff, bondm)
+                op2[sites[2]] = m3
+                op2.insert(sites[3], m4)
             # error handling
             else:
                 print('Wrong number of sites')
                 sys.exit()
-    # return a guaged and normalized MPS |phi>
-    phi = mps.normalize(phi, cutoff, bondm)
-    return phi
+    
+    return op2
