@@ -20,7 +20,7 @@ import os
 cutoff = 100
 bondm = 32
 para = p.para
-mode = sys.argv[1]
+mode = '1'
 
 # create directory to save result
 # create folder to store results
@@ -40,8 +40,7 @@ os.makedirs(result_dir, exist_ok=True)
 str_op = []
 for i in range(p.n):
     str_op.append(np.zeros((1,2,2,1), dtype=complex))
-# sites_on_str = [60,61,71,90,109,128,138,139]
-sites_on_str = [10,15,24,29]
+sites_on_str = [60,61,71,90,109,128,138,139]
 
 for i in range(p.n):
     if i in sites_on_str:

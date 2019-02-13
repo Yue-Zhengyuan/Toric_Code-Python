@@ -9,8 +9,8 @@
 import numpy as np
 
 # system parameters
-para = {'nx': 5, 'ny': 5, 'v_U': 10.0,
- 'p_g': 1.0, 'hz': 1.0, 'hx': 1.0, 'tau': 0.01, 'ttotal': 1.0}
+para = {'nx': 10, 'ny': 10, 'U': 10.0,
+ 'g': 1.0, 'hz': 1.0, 'hx': 1.0, 'tau': 0.01, 'ttotal': 1.0}
 n = 2 * (para['nx'] - 1) * para['ny']
 # Y-boundary
 n -= para['nx'] - 1

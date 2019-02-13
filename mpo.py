@@ -142,8 +142,30 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
             gate = gateList[g].gate
             sites = gateList[g].sites
             gate2 = np.conj(gate)
+            # field gate
+            if len(sites) == 1:
+                # op2 = position(op2, sites[0], 10, cutoff, bondm)
+                # contraction
+                #
+                #       a
+                #      _|_
+                #      | |
+                #      -|-
+                #       b
+                #      _|_
+                #  i --| |-- k
+                #      -|- 
+                #       e
+                #      _|_
+                #      | |
+                #      -|-
+                #       f
+                #
+                ten_AA = np.einsum('ibek,ab->iaek',op2[sites[0]],gate)
+                ten_AA = np.einsum('iaek,ef->iafk',ten_AA,gate2)
+                op2[sites[0]] = ten_AA
             # swap gate
-            if len(sites) == 2:
+            elif len(sites) == 2:
                 # op2 = position(op2, sites[0], 10, cutoff, bondm)
                 # contraction
                 #
