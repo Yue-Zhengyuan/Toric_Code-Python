@@ -16,11 +16,13 @@ import copy
 import time
 import datetime
 import os
+import json
 
 cutoff = 100
 bondm = 32
 para = p.para
-mode = '1'
+#mode = sys.argv[1]
+mode = '2'
 
 # create directory to save result
 # create folder to store results
@@ -33,6 +35,10 @@ result_dir += '-' + str(current_time.day)
 result_dir += '_' + str(current_time.hour)
 result_dir += '_' + str(current_time.minute)
 os.makedirs(result_dir, exist_ok=True)
+
+# save parameter of current running
+with open(result_dir + '/parameters.txt', 'w+') as file:
+    file.write(json.dumps(p.para)) # use `json.loads` to do the reverse
 
 # create string operator MPO (S)
 # labelling: [site][L vir leg, R vir leg, U phys leg, D phys leg]
@@ -76,6 +82,4 @@ elif mode == '2':
     para['hx'] = 0.0
     gateList = gates.makeGateList(str_op, para)
     no_field_op = mpo.gateTEvol(no_field_op, gateList, para['ttotal'], para['tau'], cutoff, bondm)
-    mpo.save_to_file(adiab_op, result_dir + '/no_field_op.txt')
-
-print('Hello world')
+    mpo.save_to_file(no_field_op, result_dir + '/no_field_op.txt')

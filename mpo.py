@@ -139,9 +139,9 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
 
     for tt in range(nt):
         for g in range(gateNum):
-            gate = gateList[g].gate
+            gate2 = gateList[g].gate
             sites = gateList[g].sites
-            gate2 = np.conj(gate)
+            gate = np.conj(gate2)
             # field gate
             if len(sites) == 1:
                 # op2 = position(op2, sites[0], 10, cutoff, bondm)
@@ -149,7 +149,7 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
                 #
                 #       a
                 #      _|_
-                #      | |
+                #      | |      gate = exp(+i H dt)
                 #      -|-
                 #       b
                 #      _|_
@@ -157,7 +157,7 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
                 #      -|- 
                 #       e
                 #      _|_
-                #      | |
+                #      | |      gate2 = exp(-i H dt)
                 #      -|-
                 #       f
                 #
