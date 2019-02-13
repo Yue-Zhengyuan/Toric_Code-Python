@@ -46,11 +46,11 @@ import copy
 # = 1 + x * (1 + x/2 *(1 + x/3 * (...
 # ~ ((x/3 + 1) * x/2 + 1) * x + 1
 
-def toExpH(ham, order):
+def toExpH4(ham, order):
     """
     Create 4-site time-evolution gate using the approximation
 
-        exp(x) = 1 + x +  x^2/2! + x^3/3! ..
+        exp(x) = 1 + x + x^2/2! + x^3/3! ..
         = 1 + x * (1 + x/2 *(1 + x/3 * (...
         ~ ((x/3 + 1) * x/2 + 1) * x + 1
 
@@ -77,8 +77,8 @@ class gate(object):
     ----------------------------
     sites : list of integers
         number of sites on which the gate acts
-    putsite : list of boolean variables
-        marking whether magnetic field has been applied to a certian site
+    field : list of boolean variables
+        marking whether magnetic field has been applied to a certian site;
         size of the list should equal that of the whole system
     kind : 'tEvolP'/'tEvolV'/'Swap'
         kind of the gate
@@ -115,12 +115,12 @@ class gate(object):
             if (not putsite[self.sites[3]]):
                 ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.iden, p.iden, p.sx) * (-para['hx'])
             ham *= (-para['tau'] / 2) * 1.0j
-            self.gate = toExpH(ham, expOrder)
+            self.gate = toExpH4(ham, expOrder)
         # Vertex operator
         elif ((self.kind == 'tEvolV') and (siteNum == 4)):
             ham = np.einsum('ab,cd,ef,gh->abcdefgh', p.sz, p.sz, p.sz, p.sz) * (-para['v_U'])
             ham *= (-para['tau'] / 2) * 1.0j
-            self.gate = toExpH(ham, expOrder)
+            self.gate = toExpH4(ham, expOrder)
         # Error handling
         else:
             print('Wrong parameter for gate construction.\n')
@@ -173,6 +173,19 @@ def makeGateList(allsites, para):
                     gateList.append(swapGates[k])
                 # evolution gate (plaquette + field)
                 gateList.append(gate(gateSites, putsite, 'tEvolP', para))
+                """
+                VERY IMPORTANT:
+                the field is added AFTER swap gate has been applied
+
+                Example
+                -----------
+                Suppose a plaquette acts on [11,15,16,20]
+                It will become [14,15,16,17] after applying the swap gates 
+                We NOW add field to site 14,15,16,17 instead of 11,15,16,20
+                But we will set putsite[11,15,16,17], not [14,15,16,17] to True
+                """
+                for site in sites: # NOT in gateSites
+                    putsite[site] = True
                 # put sites back to the original place
                 for k in reversed(range(len(swapGates))):
                     gateList.append(swapGates[k])
