@@ -230,9 +230,18 @@ def save_to_file(op, filename):
     """
     with open(filename, 'a+') as f:
         for i in range(len(op)):
-            f.write(str(i) + '\t' + str(op[i].shape) + '\n')
+            f.write(str(i) + '\t')
+            f.write(str(op[i].shape[0]) + '\t')
+            f.write(str(op[i].shape[1]) + '\t')
+            f.write(str(op[i].shape[2]) + '\t')
+            f.write(str(op[i].shape[3]) + '\n')
             for m,n,p,q in product(range(op[i].shape[0]),range(op[i].shape[1]),range(op[i].shape[2]),range(op[i].shape[3])):
                 if op[i][m,n,p,q] != 0:
-                    f.write(str(tuple([m,n,p,q])) + '\t')
+                    f.write(str(m) + '\t')
+                    f.write(str(n) + '\t')
+                    f.write(str(p) + '\t')
+                    f.write(str(q) + '\t')
                     f.write(str(op[i][m,n,p,q]) + '\n')
+            # separation line consisting of -1
+            f.write(str(-1) + '\t' + str(-1) + '\t' + str(-1) + '\t' + str(-1) + '\t' + str(-1) + '\n')
     

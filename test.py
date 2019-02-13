@@ -1,7 +1,7 @@
 # 
 #   test.py
 #   Toric_Code-Python
-#   apply the gates and MPO to MPS (test)
+#   apply the gates and MPO to MPS
 #
 #   created on Jan 21, 2019 by Yue Zhengyuan
 #
@@ -15,35 +15,27 @@ import sys
 import copy
 import time
 
-cutoff = 100
+cutoff = 1000
 bondm = 32
+para = p.para
 
-# create string operator MPO
+# create string operator MPO (S)
 # labelling: [site][L vir leg, R vir leg, U phys leg, D phys leg]
 # len(MPO): number of sites
 str_op = []
 for i in range(p.n):
     str_op.append(np.zeros((1,2,2,1), dtype=complex))
-sites_on_str = [18,19,20,21]
+sites_on_str = [60,61,71,90,109,128,138,139]
 for i in range(p.n):
     if i in sites_on_str:
         str_op[i][0,:,:,0] = p.sx
     else:
         str_op[i][0,:,:,0] = p.iden
 
-# generate gates for one step of time evolution
-t_start = time.time()
-gateList = gates.makeGateList(str_op, p.para)
-t_end = time.time()
-print('Gate generation time: ', t_end-t_start, ' s')
-print('Number of gates: ', len(gateList))
-
-# apply gates to the MPS to get new |phi> = exp(-iHt)|psi>
-t_start = time.time()
-str_op = mpo.gateTEvol(str_op, gateList, 0.01, p.para['tau'], cutoff, bondm)
-t_end = time.time()
-print('Gate evolution time: ', t_end-t_start, ' s')
-
-# write resulting MPS |phi> into txt file
-mpo.save_to_file(str_op, 'string_operator.txt')
-print('Hello world')
+# no-field Heisenberg evolution of string operator
+adiab_op = copy.copy(str_op)
+para['hx'] = 0.0
+gateList = gates.makeGateList(str_op, para)
+print('finished gate creation')
+adiab_op = mpo.gateTEvol(adiab_op, gateList, para['ttotal'], para['tau'], cutoff, bondm)
+mpo.save_to_file(adiab_op, 'no_field_op.txt')

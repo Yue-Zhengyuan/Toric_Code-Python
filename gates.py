@@ -72,6 +72,18 @@ def toExpH(ham, order):
 class gate(object):
     """
     Class of time-evolution/swap gates
+
+    Initialization Parameters
+    ----------------------------
+    sites : list of integers
+        number of sites on which the gate acts
+    putsite : list of boolean variables
+        marking whether magnetic field has been applied to a certian site
+        size of the list should equal that of the whole system
+    kind : 'tEvolP'/'tEvolV'/'Swap'
+        kind of the gate
+    para : dictionary
+        parameters of the system
     """
     def __init__(self, sites, putsite, kind, para):
         # members of Gate
@@ -131,7 +143,7 @@ def makeGateList(allsites, para):
 
     Parameters
     ---------------
-    allsites : list of boolean variables
+    allsites : list of numpy arrays
         MPS/MPO to be acted on
     para : dictionary
         parameter dictionary

@@ -25,22 +25,31 @@ para = p.para
 str_op = []
 for i in range(p.n):
     str_op.append(np.zeros((1,2,2,1), dtype=complex))
-sites_on_str = [18,19,20,21]
+sites_on_str = [60,61,71,90,109,128,138,139]
 for i in range(p.n):
     if i in sites_on_str:
         str_op[i][0,:,:,0] = p.sx
     else:
         str_op[i][0,:,:,0] = p.iden
 
-# use adiabatic continuation to find the corresponding
-# ground state |phi> when the magnetic field is on
-new_op = copy.copy(str_op)
+# adiabatic continuation of string operator
+adiab_op = copy.copy(str_op)
 stepNum = int(p.para['ttotal'] / p.para['tau'])
 for hx in np.linspace(0, -p.para['hx'], num=stepNum, dtype=float):
-    # generate gates for one step of time evolution
     para['hx'] = hx
     gateList = gates.makeGateList(str_op, para)
-    # phi = evol.gateTEvol(phi, gateList, para['tau'], para['tau'], cutoff, bondm)
+    adiab_op = mpo.gateTEvol(adiab_op, gateList, para['tau'], para['tau'], cutoff, bondm)
+mpo.save_to_file(adiab_op, 'adiab_op.txt')
 
+# quasi-adiabatic continuation of string operator
+quasi_op = copy.copy(str_op)
+stepNum = 5
+iter_list = np.linspace(0, -p.para['hx'], num=stepNum+1, dtype=float)
+iter_list = np.delete(iter_list, 0)
+for hx in iter_list:
+    para['hx'] = hx
+    gateList = gates.makeGateList(str_op, para)
+    quasi_op = mpo.gateTEvol(quasi_op, gateList, para['ttotal']/stepNum, para['tau'], cutoff, bondm)
+mpo.save_to_file(quasi_op, 'quasi_op.txt')
 
 print('Hello world')
