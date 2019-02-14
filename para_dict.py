@@ -9,8 +9,8 @@
 import numpy as np
 
 # system parameters
-para = {'nx': 5, 'ny': 5, 'U': 100.0,
- 'g': 1.0, 'hz': 10.0, 'hx': 10.0, 'tau': 0.01, 'ttotal': 1.0}
+para = {'nx': 20, 'ny': 20, 'U': 100.0,
+ 'g': 100.0, 'hz': 10.0, 'hx': 0.0, 'hy': 0.0, 'tau': 0.01, 'ttotal': 1.0}
 n = 2 * (para['nx'] - 1) * para['ny']
 # Y-boundary
 n -= para['nx'] - 1
@@ -19,5 +19,6 @@ n += para['ny'] - 1
 
 # Pauli matrices
 sx = np.array([[0.,1.], [1.,0.]], dtype=complex) / 2
+sy = np.array([[0,-1.0j],[1.0j,0]], dtype=complex) / 2
 sz = np.array([[1.,0.], [0.,-1.]], dtype=complex) / 2
 iden = np.eye(2, dtype=complex)

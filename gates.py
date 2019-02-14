@@ -103,7 +103,7 @@ class gate(object):
     putsite : list of boolean variables
         marking whether magnetic field has been applied to a certian site;
         size of the list should equal that of the whole system
-    kind : 'tEvolP'/'tEvolV'/'tEvolFx'/'tEvolFz'/'Swap'
+    kind : 'tEvolP'/'tEvolV'/'tEvolFx'/'tEvolFy'/'tEvolFz'/'Swap'
         kind of the gate
     para : dictionary
         parameters of the system
@@ -140,6 +140,11 @@ class gate(object):
         # Field along x
         elif ((self.kind == 'tEvolFx') and (siteNum == 1)):
             ham = p.sx
+            ham *= (-para['tau'] / 2) * 1.0j
+            self.gate = toExpH1(ham, expOrder)
+        # Field along y
+        elif ((self.kind == 'tEvolFy') and (siteNum == 1)):
+            ham = p.sy
             ham *= (-para['tau'] / 2) * 1.0j
             self.gate = toExpH1(ham, expOrder)
         # Field along z
@@ -233,6 +238,9 @@ def makeGateList(allsites, para):
     if (para['hx'] != 0):
         for i in range(p.n):
             gateList.append(gate([i], putsite, 'tEvolFx', para))
+    if (para['hy'] != 0):
+        for i in range(p.n):
+            gateList.append(gate([i], putsite, 'tEvolFy', para))
     if (para['hz'] != 0):
         for i in range(p.n):
             gateList.append(gate([i], putsite, 'tEvolFz', para))
