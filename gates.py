@@ -69,6 +69,29 @@ def toExpH4(ham, order):
         term = np.einsum('abcdefgh,bwdxfyhz->awcxeygz', gate, ham)
     return gate
 
+def toExpH1(ham, order):
+    """
+    Create 1-site time-evolution gate using the approximation
+
+        exp(x) = 1 + x + x^2/2! + x^3/3! ..
+        = 1 + x * (1 + x/2 *(1 + x/3 * (...
+        ~ ((x/3 + 1) * x/2 + 1) * x + 1
+
+    Parameters
+    ---------------
+    ham : list of length 1 of numpy arrays
+        1-site local Hamiltonian
+    order : int
+        approximation order in the Taylor series
+    """
+    term = copy.copy(ham)
+    unit = p.iden
+    for i in np.arange(order, 0, -1, dtype=int):
+        term /= i
+        gate = unit + term
+        term = np.einsum('ab,bw->aw', gate, ham)
+    return gate
+
 class gate(object):
     """
     Class of time-evolution/swap gates
@@ -77,10 +100,10 @@ class gate(object):
     ----------------------------
     sites : list of integers
         number of sites on which the gate acts
-    field : list of boolean variables
+    putsite : list of boolean variables
         marking whether magnetic field has been applied to a certian site;
         size of the list should equal that of the whole system
-    kind : 'tEvolP'/'tEvolV'/'Swap'
+    kind : 'tEvolP'/'tEvolV'/'tEvolFx'/'tEvolFy'/'tEvolFz'/'Swap'
         kind of the gate
     para : dictionary
         parameters of the system
@@ -98,29 +121,37 @@ class gate(object):
             for a,b,c,d in product(range(2), repeat=4):
                 if (a == d and b == c):
                     self.gate[a,b,c,d] = 1.0
+
         # first create local Hamiltonian
         # then convert to time evolution gate via toExpH
 
-        # Plaquette operator (with field)
+        # System Hamiltonian:
+        #   H = - U * \sum(A_p) - g * \sum(B_p) - hz * \sum(Sz) - hx * \sum(Sx)
+        # Plaquette operator
         elif ((self.kind == 'tEvolP') and (siteNum == 4)):
-            # plaquette part
-            ham = np.einsum('ab,cd,ef,gh->abcdefgh', p.sx, p.sx, p.sx, p.sx) * (-para['p_g'])
-            # field part
-            if (not putsite[self.sites[0]]):
-                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.sx, p.iden, p.iden, p.iden) * (-para['hx'])
-            if (not putsite[self.sites[1]]):
-                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.sx, p.iden, p.iden) * (-para['hx'])
-            if (not putsite[self.sites[2]]):
-                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.iden, p.sx, p.iden) * (-para['hx'])
-            if (not putsite[self.sites[3]]):
-                ham += np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.iden, p.iden, p.sx) * (-para['hx'])
+            ham = np.einsum('ab,cd,ef,gh->abcdefgh', p.sx, p.sx, p.sx, p.sx) * (-para['g'])
             ham *= (-para['tau'] / 2) * 1.0j
             self.gate = toExpH4(ham, expOrder)
         # Vertex operator
         elif ((self.kind == 'tEvolV') and (siteNum == 4)):
-            ham = np.einsum('ab,cd,ef,gh->abcdefgh', p.sz, p.sz, p.sz, p.sz) * (-para['v_U'])
+            ham = np.einsum('ab,cd,ef,gh->abcdefgh', p.sz, p.sz, p.sz, p.sz) * (-para['U'])
             ham *= (-para['tau'] / 2) * 1.0j
             self.gate = toExpH4(ham, expOrder)
+        # Field along x
+        elif ((self.kind == 'tEvolFx') and (siteNum == 1)):
+            ham = p.sx
+            ham *= (-para['tau'] / 2) * 1.0j
+            self.gate = toExpH1(ham, expOrder)
+        # Field along y
+        elif ((self.kind == 'tEvolFy') and (siteNum == 1)):
+            ham = p.sy
+            ham *= (-para['tau'] / 2) * 1.0j
+            self.gate = toExpH1(ham, expOrder)
+        # Field along z
+        elif ((self.kind == 'tEvolFz') and (siteNum == 1)):
+            ham = p.sz
+            ham *= (-para['tau'] / 2) * 1.0j
+            self.gate = toExpH1(ham, expOrder)
         # Error handling
         else:
             print('Wrong parameter for gate construction.\n')
@@ -154,7 +185,7 @@ def makeGateList(allsites, para):
     swapGates = []
     # open boundary condition
     # make plaquette gates (together with field)
-    if (para['p_g'] != 0):
+    if (para['g'] != 0):
         for i in np.arange(1, p.n - (para['nx']-1), 2 * para['nx'] - 1, dtype=int):
             for j in np.arange(0, para['nx'] - 1, 1, dtype=int):
                 u = i + j
@@ -171,28 +202,15 @@ def makeGateList(allsites, para):
                 gateSites = [sites[1]-1, sites[1], sites[1]+1, sites[1]+2]
                 for k in range(len(swapGates)):
                     gateList.append(swapGates[k])
-                # evolution gate (plaquette + field)
+                # evolution gate (plaquette)
                 gateList.append(gate(gateSites, putsite, 'tEvolP', para))
-                """
-                VERY IMPORTANT:
-                the field is added AFTER swap gate has been applied
-
-                Example
-                -----------
-                Suppose a plaquette acts on [11,15,16,20]
-                It will become [14,15,16,17] after applying the swap gates 
-                We NOW add field to site 14,15,16,17 instead of 11,15,16,20
-                But we will set putsite[11,15,16,17], not [14,15,16,17] to True
-                """
-                for site in sites: # NOT in gateSites
-                    putsite[site] = True
                 # put sites back to the original place
                 for k in reversed(range(len(swapGates))):
                     gateList.append(swapGates[k])
                 swapGates.clear()
 
     # make vertex gates
-    if (para['v_U'] != 0):
+    if (para['U'] != 0):
         for i in np.arange(para['nx'] + 1, p.n - 3 * para['nx'] + 2, 2 * para['nx'] - 1, dtype=int):
             for j in np.arange(0, para['nx'] - 2, 1, dtype=int):
                 u = i + j
@@ -215,6 +233,17 @@ def makeGateList(allsites, para):
                 for k in reversed(range(len(swapGates))):
                     gateList.append(swapGates[k])
                 swapGates.clear()
+
+    # make field gates
+    if (para['hx'] != 0):
+        for i in range(p.n):
+            gateList.append(gate([i], putsite, 'tEvolFx', para))
+    if (para['hy'] != 0):
+        for i in range(p.n):
+            gateList.append(gate([i], putsite, 'tEvolFy', para))
+    if (para['hz'] != 0):
+        for i in range(p.n):
+            gateList.append(gate([i], putsite, 'tEvolFz', para))
 
     # second order Trotter decomposition
     # b1.b2.b3....b3.b2.b1

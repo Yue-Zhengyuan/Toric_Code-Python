@@ -53,7 +53,7 @@ def position(op, pos, length, cutoff, bondm):
         # i,j: virtual leg; a,b: physical leg
         mat = np.einsum('iabj->abij', op2[i])
         mat = np.reshape(op2[i], (phyDim[0]*phyDim[1]*virDim[0], virDim[1]))
-        a,s,v = np.linalg.svd(mat)
+        a,s,v = np.linalg.svd(mat, full_matrices=False)
         a,s,v,retain_dim = mps.svd_truncate(a, s, v, cutoff, bondm)
         # replace op[i] with a
         a = np.reshape(a, (phyDim[0],phyDim[1],virDim[0],retain_dim))
@@ -71,7 +71,7 @@ def position(op, pos, length, cutoff, bondm):
         # i,j: virtual leg; a,b: physical leg
         mat = np.einsum('iabj->ijab', op2[i])
         mat = np.reshape(op2[i], (virDim[0], virDim[1]*phyDim[0]*phyDim[1]))
-        u,s,b = np.linalg.svd(mat)
+        u,s,b = np.linalg.svd(mat, full_matrices=False)
         u,s,b,retain_dim = mps.svd_truncate(u, s, b, cutoff, bondm)
         # replace mps[i] with b
         b = np.reshape(b, (retain_dim,virDim[1],phyDim[0],phyDim[1]))
@@ -84,12 +84,14 @@ def position(op, pos, length, cutoff, bondm):
     
     return op2
 
-def svd_2site(tensor, cutoff, bondm):
+def svd_nsite(n, tensor, cutoff, bondm):
     """
-    Do SVD to decomposite one large tensor into 2 site tensors of an MPO
+    Do SVD to decomposite one large tensor into n site tensors of an MPO
     
     Parameters
     ---------------
+    n : int
+        number of site tensors to be produces
     tensor : numpy array
         the 2-site tensor to be decomposed
     cutoff : float
@@ -97,19 +99,28 @@ def svd_2site(tensor, cutoff, bondm):
     bondm : int
         largest virtual bond dimension allowed
     """
-
+    if (len(tensor.shape) != 2*n + 2):
+        sys.exit('Wrong dimension of input tensor')
     virDim = [tensor.shape[0], tensor.shape[-1]]
-    phyDim = [tensor.shape[1], tensor.shape[2]]
-    mat = np.reshape(tensor, (virDim[0] * phyDim[0] * phyDim[1], virDim[1] * phyDim[0] * phyDim[1]))
-
-    u,s,v = np.linalg.svd(mat)
-    u,s,v,retain_dim = mps.svd_truncate(u, s, v, cutoff, bondm)
-    mat_s = np.diag(s)
-    u = np.dot(u, np.sqrt(mat_s))
-    v = np.dot(np.sqrt(mat_s), v)
-    u = np.reshape(u, (virDim[0], phyDim[0], phyDim[1], retain_dim))
-    v = np.reshape(v, (retain_dim, phyDim[0], phyDim[1], virDim[1]))
-    return u, v
+    phyDim = list(tensor.shape[1:-1])
+    old_retain_dim = virDim[0]
+    result = []
+    mat = copy.copy(tensor)
+    for i in np.arange(0, n - 1, 1, dtype=int):
+        mat = np.reshape(mat, (old_retain_dim * phyDim[2*i] * phyDim[2*i+1], 
+        virDim[1] * np.prod(phyDim[2*i+2 : len(phyDim)])))
+        u,s,v = np.linalg.svd(mat, full_matrices=False)
+        u,s,v,new_retain_dim = mps.svd_truncate(u, s, v, cutoff, bondm)
+        mat_s = np.diag(s)
+        u = np.dot(u, np.sqrt(mat_s))
+        v = np.dot(np.sqrt(mat_s), v)
+        u = np.reshape(u, (old_retain_dim, phyDim[2*i], phyDim[2*i+1], new_retain_dim))
+        result.append(u)
+        mat = copy.copy(v)
+        old_retain_dim = new_retain_dim
+    v = np.reshape(v, (old_retain_dim, phyDim[-2], phyDim[-1], virDim[-1]))
+    result.append(v)
+    return result
 
 def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
     """
@@ -139,11 +150,33 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
 
     for tt in range(nt):
         for g in range(gateNum):
-            gate = gateList[g].gate
+            gate2 = gateList[g].gate
             sites = gateList[g].sites
-            gate2 = np.conj(gate)
+            gate = np.conj(gate2)
+            # field gate
+            if len(sites) == 1:
+                # op2 = position(op2, sites[0], 10, cutoff, bondm)
+                # contraction
+                #
+                #       a
+                #      _|_
+                #      | |      gate = exp(+i H dt)
+                #      -|-
+                #       b
+                #      _|_
+                #  i --| |-- k
+                #      -|- 
+                #       e
+                #      _|_
+                #      | |      gate2 = exp(-i H dt)
+                #      -|-
+                #       f
+                #
+                ten_AA = np.einsum('ibek,ab->iaek',op2[sites[0]],gate)
+                ten_AA = np.einsum('iaek,ef->iafk',ten_AA,gate2)
+                op2[sites[0]] = ten_AA
             # swap gate
-            if len(sites) == 2:
+            elif len(sites) == 2:
                 # op2 = position(op2, sites[0], 10, cutoff, bondm)
                 # contraction
                 #
@@ -164,9 +197,9 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
                 ten_AA = np.einsum('ibek,kdgj,abcd->iaecgj',op2[sites[0]],op2[sites[1]],gate)
                 ten_AA = np.einsum('iaecgj,efgh->iafchj',ten_AA,gate2)
                 # do svd to restore 2 sites
-                m1, m2 = svd_2site(ten_AA, cutoff, bondm)
-                op2[sites[0]] = m1
-                op2[sites[1]] = m2
+                result = svd_nsite(2, ten_AA, cutoff, bondm)
+                for i in range(2):
+                    op2[sites[i]] = result[i]
             # time evolution gate
             elif len(sites) == 4:
                 # gauging and normalizing
@@ -190,30 +223,12 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
                 ten_AAAA = np.einsum('ibsj,jduk,kfwl,lhym->ibsdufwhym',op2[sites[0]],op2[sites[1]],op2[sites[2]],op2[sites[3]])
                 ten_AAAA = np.einsum('abcdefgh,ibsdufwhym->iascuewgym',gate,ten_AAAA)
                 ten_AAAA = np.einsum('iascuewgym,stuvwxyz->iatcvexgzm',ten_AAAA,gate2)
-                # combine 4 sites into 2 sites
-                ten_AAAA = np.reshape(ten_AAAA, (ten_AAAA.shape[0],4,4,4,4,ten_AAAA.shape[-1]))
-                mm1, mm2 = svd_2site(ten_AAAA, cutoff, bondm)
-                # replace sites: 
-                del op2[sites[3]]
-                del op2[sites[2]]
-                op2[sites[0]] = mm1
-                op2[sites[1]] = mm2
-                # do svd again to restore 4 sites
-                # op2 = position(op2, sites[0], 10, cutoff, bondm)
-                op2[sites[0]] = np.reshape(op2[sites[0]], (op2[sites[0]].shape[0],2,2,2,2,op2[sites[0]].shape[-1]))
-                m1, m2 = svd_2site(op2[sites[0]], cutoff, bondm)
-                op2[sites[0]] = m1
-                op2.insert(sites[1], m2)
-
-                # op2 = position(op2, sites[2], 10, cutoff, bondm)
-                op2[sites[2]] = np.reshape(op2[sites[2]], (op2[sites[2]].shape[0],2,2,2,2,op2[sites[2]].shape[-1]))
-                m3, m4 = svd_2site(op2[sites[2]], cutoff, bondm)
-                op2[sites[2]] = m3
-                op2.insert(sites[3], m4)
+                result = svd_nsite(4, ten_AAAA, cutoff, bondm)
+                for i in range(4):
+                    op2[sites[i]] = result[i]
             # error handling
             else:
-                print('Wrong number of sites')
-                sys.exit()
+                sys.exit('Wrong number of sites of gate')
     
     return op2
 
