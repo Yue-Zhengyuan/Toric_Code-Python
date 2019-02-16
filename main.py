@@ -50,13 +50,13 @@ def lat(site, dir, size):
 
 cutoff = 100
 bondm = 32
-para = p.para
+para = copy.copy(p.para)
 # clear magnetic field
 para['hx'] = 0
 para['hy'] = 0
 para['hz'] = 0
-#mode = sys.argv[1]
-mode = '2'
+mode = sys.argv[1]
+# mode = '2'
 
 # create directory to save result
 # create folder to store results
