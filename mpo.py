@@ -46,6 +46,7 @@ def position(op, pos, length, cutoff, bondm):
     elif right > siteNum - 1:
         left = siteNum - 1 - length
         right = siteNum - 1
+
     # left normalization
     for i in np.arange(left, pos, 1, dtype=int):
         virDim = [op2[i].shape[0], op2[i].shape[-1]]
@@ -142,6 +143,7 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
         largest virtual bond dimension allowed
     """
     op2 = copy.copy(op)
+    # number of steps
     nt = int(ttotal/tstep + (1e-9 * (ttotal/tstep)))
     if (np.abs(nt*tstep-ttotal) > 1.0E-9): 
         print("Timestep not commensurate with total time")

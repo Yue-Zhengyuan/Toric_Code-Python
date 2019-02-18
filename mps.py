@@ -10,6 +10,7 @@ import numpy as np
 import sys
 import copy
 import gates
+from itertools import product
 
 def svd_truncate(u, s, v, cutoff, bondm):
     """
@@ -114,12 +115,15 @@ def normalize(psi, cutoff, bondm):
     phi = list(phi)
     return phi
 
-def svd_2site(tensor, cutoff, bondm):
+def svd_nsite(n, tensor, cutoff, bondm):
     """
-    Do SVD to decomposite one large tensor into 2 site tensors of an MPS
+    Do SVD to decomposite one large tensor into n site tensors of an MPS
+    (u, v are made "positive" in terms of their eigenvalue)
     
     Parameters
     ---------------
+    n : int
+        number of site tensors to be produces
     tensor : numpy array
         the 2-site tensor to be decomposed
     cutoff : float
@@ -127,19 +131,28 @@ def svd_2site(tensor, cutoff, bondm):
     bondm : int
         largest virtual bond dimension allowed
     """
-
+    if (len(tensor.shape) != 2*n + 2):
+        sys.exit('Wrong dimension of input tensor')
     virDim = [tensor.shape[0], tensor.shape[-1]]
-    phyDim = tensor.shape[1]
-    mat = np.reshape(tensor, (virDim[0] * phyDim, virDim[1] * phyDim))
-
-    u,s,v = np.linalg.svd(mat)
-    u,s,v,retain_dim = svd_truncate(u, s, v, cutoff, bondm)
-    mat_s = np.diag(s)
-    u = np.dot(u, np.sqrt(mat_s))
-    v = np.dot(np.sqrt(mat_s), v)
-    u = np.reshape(u, (virDim[0], phyDim, retain_dim))
-    v = np.reshape(v, (retain_dim, phyDim, virDim[1]))
-    return u, v
+    phyDim = list(tensor.shape[1:-1])
+    old_retain_dim = virDim[0]
+    result = []
+    mat = copy.copy(tensor)
+    for i in np.arange(0, n - 1, 1, dtype=int):
+        mat = np.reshape(mat, (old_retain_dim * phyDim[i], 
+        virDim[1] * np.prod(phyDim[i+1 : len(phyDim)])))
+        u,s,v = np.linalg.svd(mat, full_matrices=False)
+        u,s,v,new_retain_dim = svd_truncate(u, s, v, cutoff, bondm)
+        mat_s = np.diag(s)
+        u = np.dot(u, np.sqrt(mat_s))
+        v = np.dot(np.sqrt(mat_s), v)
+        u = np.reshape(u, (old_retain_dim, phyDim[i], new_retain_dim))
+        result.append(u)
+        mat = copy.copy(v)
+        old_retain_dim = new_retain_dim
+    v = np.reshape(v, (old_retain_dim, phyDim[-1], virDim[-1]))
+    result.append(v)
+    return result
 
 def applyMPOtoMPS(mpo, mps, cutoff, bondm):
     """
@@ -229,6 +242,22 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
         for g in range(gateNum):
             gate = gateList[g].gate
             sites = gateList[g].sites
+            # field gate
+            if len(sites) == 1:
+                phi = position(phi, sites[0], cutoff, bondm)
+                # contraction
+                #
+                #       a
+                #      _|_
+                #      | |      gate = exp(-i H dt)
+                #      -|-
+                #       b
+                #      _|_
+                #  i --| |-- k
+                #      --- 
+                #
+                ten_AA = np.einsum('ibk,ab->iak',phi[sites[0]],gate)
+                phi[sites[0]] = ten_AA
             # swap gate
             if len(sites) == 2:
                 # gauging and normalizing
@@ -246,9 +275,9 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
                 #
                 ten_AA = np.einsum('ibk,kdj,abcd->iacj',phi[sites[0]],phi[sites[1]],gate)
                 # do svd to restore 2 sites
-                m1, m2 = svd_2site(ten_AA, cutoff, bondm)
-                phi[sites[0]] = m1
-                phi[sites[1]] = m2
+                result = svd_nsite(2, ten_AA, cutoff, bondm)
+                for i in range(2):
+                    phi[sites[i]] = result[i]
             # time evolution gate
             elif len(sites) == 4:
                 # gauging and normalizing
@@ -268,28 +297,56 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
                 ten_AAAA = np.einsum('ibdfhm,abcdefgh->iacegm',ten_AAAA,gate)
                 # combine 4 sites into 2 sites
                 ten_AAAA = np.reshape(ten_AAAA, (ten_AAAA.shape[0],4,4,ten_AAAA.shape[-1]))
-                mm1, mm2 = svd_2site(ten_AAAA, cutoff, bondm)
-                # replace sites: 
+                result = svd_nsite(2, ten_AAAA, cutoff, bondm)
+                mm1, mm2 = result[0], result[1]
+                # 4 -> 2 + 2
                 del phi[sites[3]]
                 del phi[sites[2]]
                 phi[sites[0]] = mm1
                 phi[sites[1]] = mm2
-                # do svd again to restore 4 sites
+                # 2 + 2 -> 1 + 1 + 2
                 phi = position(phi, sites[0], cutoff, bondm)
                 phi[sites[0]] = np.reshape(phi[sites[0]], (phi[sites[0]].shape[0],2,2,phi[sites[0]].shape[-1]))
-                m1, m2 = svd_2site(phi[sites[0]], cutoff, bondm)
-                phi[sites[0]] = m1
-                phi.insert(sites[1], m2)
-
+                result = svd_nsite(2, phi[sites[0]], cutoff, bondm)
+                phi[sites[0]] = result[0]
+                phi.insert(sites[1], result[1])
+                # 1 + 1 + 2 -> 1 + 1 + 1 + 1
                 phi = position(phi, sites[2], cutoff, bondm)
                 phi[sites[2]] = np.reshape(phi[sites[2]], (phi[sites[2]].shape[0],2,2,phi[sites[2]].shape[-1]))
-                m3, m4 = svd_2site(phi[sites[2]], cutoff, bondm)
-                phi[sites[2]] = m3
-                phi.insert(sites[3], m4)
+                result = svd_nsite(2, phi[sites[2]], cutoff, bondm)
+                phi[sites[2]] = result[0]
+                phi.insert(sites[3], result[1])
             # error handling
             else:
                 print('Wrong number of sites')
                 sys.exit()
     # return a guaged and normalized MPS |phi>
-    phi = normalize(phi, cutoff, bondm)
+    # phi = normalize(phi, cutoff, bondm)
     return phi
+
+def save_to_file(psi, filename):
+    """
+    Save MPS (shape and nonzero elements) to (txt) file
+
+    Parameters
+    ----------
+    op : list of numpy arrays
+        the MPO to be written to file
+    filename : string
+        name of the output file
+    """
+    with open(filename, 'a+') as f:
+        for i in range(len(psi)):
+            f.write(str(i) + '\t')
+            f.write(str(psi[i].shape[0]) + '\t')
+            f.write(str(psi[i].shape[1]) + '\t')
+            f.write(str(psi[i].shape[2]) + '\t')
+            for m,n,p in product(range(psi[i].shape[0]),range(psi[i].shape[1]),range(psi[i].shape[2])):
+                if psi[i][m,n,p] != 0:
+                    f.write(str(m) + '\t')
+                    f.write(str(n) + '\t')
+                    f.write(str(p) + '\t')
+                    f.write(str(psi[i][m,n,p]) + '\n')
+            # separation line consisting of -1
+            f.write(str(-1) + '\t' + str(-1) + '\t' + str(-1) + '\t' + str(-1) + '\n')
+    

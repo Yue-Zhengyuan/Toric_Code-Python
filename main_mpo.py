@@ -9,6 +9,7 @@
 import numpy as np
 import gates
 import para_dict as p
+import lattice as lat
 import mps
 import mpo
 import sys
@@ -17,36 +18,6 @@ import time
 import datetime
 import os
 import json
-
-def lat(site, dir, size):
-    """
-    numbering the square lattice bonds
-
-    Parameters
-    --------------
-    site : int
-        (x, y) coordinate of one endpoint of the bond
-        (from 0 to size - 1)
-    dir : 'r'/'d'
-        direction of the bond (right or downward)
-    size : int
-        size of the square lattice
-    """
-    step = 2*size - 1
-    if dir == 'r':
-        line_start = site[1] * step + 1
-        num = line_start + site[0]
-        num -= 1
-
-    elif dir == 'd':
-        col_start = size + site[0]
-        num = col_start + site[1] * step
-        num -= 1
-
-    else:
-        sys.exit('Wrong direction of the bond')
-    # will add boundary check later
-    return num
 
 cutoff = 100
 bondm = 32
@@ -85,7 +56,7 @@ bond_on_str = [(8,10,'r'),(9,10,'r'),(10,10,'r'),(11,10,'r'),(12,10,'r')]
 # convert coordinate to unique number
 bond_list = []
 for bond in bond_on_str:
-    bond_list.append(lat(bond[0:2],bond[2],para['nx']))
+    bond_list.append(lat.lat(bond[0:2],bond[2],para['nx']))
 
 for i in range(p.n):
     if i in bond_list:
