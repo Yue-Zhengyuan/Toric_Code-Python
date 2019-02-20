@@ -48,14 +48,14 @@ def position(op, pos, length, cutoff, bondm):
         right = siteNum - 1
 
     # left normalization
-    for i in np.arange(left, pos, 1, dtype=int):
+    for i in np.arange(left, pos + 1, 1, dtype=int):
         virDim = [op2[i].shape[0], op2[i].shape[-1]]
         phyDim = [op2[i].shape[1], op2[i].shape[2]]
         # i,j: virtual leg; a,b: physical leg
         mat = np.einsum('iabj->abij', op2[i])
         mat = np.reshape(op2[i], (phyDim[0]*phyDim[1]*virDim[0], virDim[1]))
         a,s,v = np.linalg.svd(mat, full_matrices=False)
-        a,s,v,retain_dim = mps.svd_truncate(a, s, v, cutoff, bondm)
+        a,s,v,retain_dim = mps.svd_truncate(a, s, v, cutoff, bondm, normalize=False)
         # replace op[i] with a
         a = np.reshape(a, (phyDim[0],phyDim[1],virDim[0],retain_dim))
         a = np.einsum('abis->iabs', a)
@@ -73,7 +73,7 @@ def position(op, pos, length, cutoff, bondm):
         mat = np.einsum('iabj->ijab', op2[i])
         mat = np.reshape(op2[i], (virDim[0], virDim[1]*phyDim[0]*phyDim[1]))
         u,s,b = np.linalg.svd(mat, full_matrices=False)
-        u,s,b,retain_dim = mps.svd_truncate(u, s, b, cutoff, bondm)
+        u,s,b,retain_dim = mps.svd_truncate(u, s, b, cutoff, bondm, normalize=False)
         # replace mps[i] with b
         b = np.reshape(b, (retain_dim,virDim[1],phyDim[0],phyDim[1]))
         b = np.einsum('sjab->sabj', b)
@@ -111,7 +111,7 @@ def svd_nsite(n, tensor, cutoff, bondm):
         mat = np.reshape(mat, (old_retain_dim * phyDim[2*i] * phyDim[2*i+1], 
         virDim[1] * np.prod(phyDim[2*i+2 : len(phyDim)])))
         u,s,v = np.linalg.svd(mat, full_matrices=False)
-        u,s,v,new_retain_dim = mps.svd_truncate(u, s, v, cutoff, bondm)
+        u,s,v,new_retain_dim = mps.svd_truncate(u, s, v, cutoff, bondm, normalize=False)
         mat_s = np.diag(s)
         u = np.dot(u, np.sqrt(mat_s))
         v = np.dot(np.sqrt(mat_s), v)
@@ -234,6 +234,38 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
     
     return op2
 
+def sum(mpo1, mpo2, cutoff, bondm):
+    """
+    Calculate the inner product of two MPO's
+
+    Parameters
+    ------------
+    mpo1, mpo2 : list of numpy arrays
+        The two MPOs to be added
+    cutoff : float
+        largest value of s_max/s_min
+    bondm : int
+        largest virtual bond dimension allowed
+    """
+    # dimension check
+    if len(mpo1) != len(mpo2):
+        sys.exit("The lengths of the two MPOs do not match")
+    for i in range(len(mpo1)):
+        if (mpo1[i].shape[1] != mpo2[i].shape[1] or mpo1[i].shape[2] != mpo2[i].shape[2]):
+            sys.exit("The physical dimensions of the two MPOs do not match")
+    result = []
+    for i in range(len(mpo1)):
+        virDim1 = [mpo1[i].shape[0], mpo1[i].shape[-1]]
+        virDim2 = [mpo2[i].shape[0], mpo2[i].shape[-1]]
+        phyDim = [mpo1[i].shape[1], mpo1[i].shape[2]]
+        virDim = [virDim1[0]+virDim2[0], virDim1[1]+virDim2[1]]
+        result.append(np.zeros((virDim[0], phyDim[0], phyDim[1], virDim[1]), dtype=complex))
+        # direct sum
+        result[i][0:virDim1[0],:,:,0:virDim1[1]] = mpo1[i]
+        result[i][virDim1[0]:virDim[0],:,:,virDim1[1]:virDim[1]] = mpo2[i]
+    result = position(result, int(len(result)/2), len(result), cutoff, bondm)
+    return result
+
 def save_to_file(op, filename):
     """
     Save MPO (shape and nonzero elements) to (txt) file
@@ -245,7 +277,7 @@ def save_to_file(op, filename):
     filename : string
         name of the output file
     """
-    with open(filename, 'a+') as f:
+    with open(filename, 'w+') as f:
         for i in range(len(op)):
             f.write(str(i) + '\t')
             f.write(str(op[i].shape[0]) + '\t')

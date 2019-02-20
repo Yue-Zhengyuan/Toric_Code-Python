@@ -26,8 +26,8 @@ para = copy.copy(p.para)
 para['hx'] = 0
 para['hy'] = 0
 para['hz'] = 0
-mode = sys.argv[1]
-# mode = '2'
+# mode = sys.argv[1]
+mode = '2'
 
 # create directory to save result
 # create folder to store results
@@ -69,7 +69,7 @@ for i in range(p.n):
 
 # save parameter of current running
 with open(result_dir + '/parameters.txt', 'w+') as file:
-    file.write(json.dumps(p.para))  # use `json.loads` to do the reverse
+    file.write(json.dumps(p.para))  # use json.loads to do the reverse
     file.write('\nSites on String\n')
     file.write(str(bond_on_str))    # coordinate
     file.write(str(bond_list))      # bond number
@@ -86,32 +86,34 @@ if mode == '0':
     # S exp(-iHt) |psi>
     psi = mps.applyMPOtoMPS(str_op, psi, cutoff, bondm)
     # exp(+iHt) S exp(-iHt) |psi>
-    for hx in np.linspace(0, -p.para['hx'], num=stepNum, dtype=float):
+    for hx in reversed(np.linspace(0, -p.para['hx'], num=stepNum, dtype=float)):
         para['hx'] = hx
         gateList = gates.makeGateList(str_op, para)
         for g in gateList:
             g.gate = np.conj(g.gate)
         psi = mps.gateTEvol(psi, gateList, para['tau'], para['tau'], cutoff, bondm)
-    mps.save_to_file(psi, result_dir + '/adiab_op.txt')
+    mps.save_to_file(psi, result_dir + '/adiab_psi.txt')
 
 # quasi-adiabatic continuation of string operator
 elif mode == '1':
-    stepNum = int(p.para['ttotal'] / p.para['tau'])
+    stepNum = 4
     # exp(-iHt) |psi>
-    for hx in np.linspace(0, -p.para['hx'], num=stepNum, dtype=float):
+    iter_list = np.linspace(0, -p.para['hx'], num=stepNum+1, dtype=float)
+    iter_list = np.delete(iter_list, 0)
+    for hx in iter_list:
         para['hx'] = hx
         gateList = gates.makeGateList(str_op, para)
-        psi = mps.gateTEvol(psi, gateList, para['tau'], para['tau'], cutoff, bondm)
+        psi = mps.gateTEvol(psi, gateList, para['ttotal']/stepNum, para['tau'], cutoff, bondm)
     # S exp(-iHt) |psi>
     psi = mps.applyMPOtoMPS(str_op, psi, cutoff, bondm)
     # exp(+iHt) S exp(-iHt) |psi>
-    for hx in np.linspace(0, -p.para['hx'], num=stepNum, dtype=float):
+    for hx in reversed(iter_list):
         para['hx'] = hx
-        gateList = gates.makeGateList(str_op, para)
+        gateList = gates.makeGateList(str_op, para) # create exp(-iHt)
         for g in gateList:
-            g.gate = np.conj(g.gate)
-        psi = mps.gateTEvol(psi, gateList, para['tau'], para['tau'], cutoff, bondm)
-    mps.save_to_file(psi, result_dir + '/adiab_op.txt')
+            g.gate = np.conj(g.gate)                # convert to exp(+iHt)
+        psi = mps.gateTEvol(psi, gateList, para['ttotal']/stepNum, para['tau'], cutoff, bondm)
+    mps.save_to_file(psi, result_dir + '/quasi_psi.txt')
 
 # no-field Heisenberg evolution of string operator
 elif mode == '2':
@@ -125,4 +127,4 @@ elif mode == '2':
     for g in gateList:
         g.gate = np.conj(g.gate)
     psi = mps.gateTEvol(psi, gateList, para['ttotal'], para['tau'], cutoff, bondm)
-    mps.save_to_file(psi, result_dir + '/adiab_op.txt')
+    mps.save_to_file(psi, result_dir + '/no_field_psi.txt')

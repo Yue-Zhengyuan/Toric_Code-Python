@@ -1,5 +1,5 @@
 # 
-#   py
+#   mps.py
 #   Toric_Code-Python
 #   Operations related to MPS
 #
@@ -12,7 +12,7 @@ import copy
 import gates
 from itertools import product
 
-def svd_truncate(u, s, v, cutoff, bondm):
+def svd_truncate(u, s, v, cutoff, bondm, normalize=True):
     """
     Truncate SVD results
 
@@ -29,6 +29,8 @@ def svd_truncate(u, s, v, cutoff, bondm):
         largest value of s_max/s_min
     bondm : int
         largest virtual bond dimension allowed
+    normalize : bool, optional
+        if True, normalize the retained sigular values
     """
     # remove zero sigular values
     s = s[np.where(s[:] > 0)[0]]
@@ -37,6 +39,9 @@ def svd_truncate(u, s, v, cutoff, bondm):
     s = s[0:retain_dim]
     u = u[:, 0:retain_dim]
     v = v[0:retain_dim, :]
+    if normalize == True:
+        norm = np.linalg.norm(s)
+        s /= norm
     return u, s, v, retain_dim
 
 def position(psi, pos, cutoff, bondm):
@@ -56,41 +61,70 @@ def position(psi, pos, cutoff, bondm):
     """
     phi = copy.copy(psi)
     siteNum = len(phi)
-    # left normalization
-    for i in range(pos):
-        virDim = [phi[i].shape[0], phi[i].shape[-1]]
-        phyDim = phi[i].shape[1]
-        # i,j: virtual leg; a: physical leg
-        mat = np.einsum('iaj->aij', phi[i])
-        mat = np.reshape(phi[i], (phyDim*virDim[0], virDim[1]))
-        a,s,v = np.linalg.svd(mat)
-        a,s,v,retain_dim = svd_truncate(a, s, v, cutoff, bondm)
-        # replace mps[i] with a
-        a = np.reshape(a, (phyDim,virDim[0],retain_dim))
-        a = np.einsum('ais->ias', a)
-        phi[i] = a
-        # update mps[i+1]
-        mat_s = np.diag(s)
-        v = np.dot(mat_s, v)
-        phi[i+1] = np.einsum('si,iaj->saj', v, phi[i+1])
-
-    # right normalization
-    for i in np.arange(siteNum-1, pos, -1, dtype=int):
-        virDim = [phi[i].shape[0], phi[i].shape[-1]]
-        phyDim = phi[i].shape[1]
-        # i,j: virtual leg; a: physical leg
-        mat = np.einsum('iaj->ija', phi[i])
-        mat = np.reshape(phi[i], (virDim[0], virDim[1]*phyDim))
-        u,s,b = np.linalg.svd(mat)
-        u,s,b,retain_dim = svd_truncate(u, s, b, cutoff, bondm)
-        # replace mps[i] with b
-        b = np.reshape(b, (retain_dim,virDim[1],phyDim))
-        b = np.einsum('sja->saj', b)
-        phi[i] = b
-        # update mps[i-1]
-        mat_s = np.diag(s)
-        u = np.dot(u, mat_s)
-        phi[i-1] = np.einsum('iaj,js->ias', phi[i-1], u)
+    # pos = siteNum -> perform left normalization (0 to siteNum-2)
+    if pos == siteNum - 1:
+        for i in range(siteNum - 1):
+            virDim = [phi[i].shape[0], phi[i].shape[-1]]
+            phyDim = phi[i].shape[1]
+            # i,j: virtual leg; a: physical leg
+            mat = np.reshape(phi[i], (virDim[0]*phyDim, virDim[1]))
+            a,s,v = np.linalg.svd(mat)
+            a,s,v,retain_dim = svd_truncate(a, s, v, cutoff, bondm)
+            # replace mps[i] with a
+            a = np.reshape(a, (virDim[0],phyDim,retain_dim))
+            phi[i] = a
+            # update mps[i+1]
+            mat_s = np.diag(s)
+            v = np.dot(mat_s, v)
+            phi[i+1] = np.einsum('si,iaj->saj', v, phi[i+1])
+    # position = 0 -> perform right normalization (siteNum-1 to 1)
+    elif pos == 0:
+        for i in np.arange(siteNum-1, 0, -1, dtype=int):
+            virDim = [phi[i].shape[0], phi[i].shape[-1]]
+            phyDim = phi[i].shape[1]
+            # i,j: virtual leg; a: physical leg
+            mat = np.reshape(phi[i], (virDim[0], phyDim*virDim[1]))
+            u,s,b = np.linalg.svd(mat)
+            u,s,b,retain_dim = svd_truncate(u, s, b, cutoff, bondm)
+            # replace mps[i] with b
+            b = np.reshape(b, (retain_dim,phyDim,virDim[1]))
+            phi[i] = b
+            # update mps[i-1]
+            mat_s = np.diag(s)
+            u = np.dot(u, mat_s)
+            phi[i-1] = np.einsum('iaj,js->ias', phi[i-1], u)
+    # other cases
+    else:
+        # left normalization (0 to pos)
+        for i in range(pos + 1):
+            virDim = [phi[i].shape[0], phi[i].shape[-1]]
+            phyDim = phi[i].shape[1]
+            # i,j: virtual leg; a: physical leg
+            mat = np.reshape(phi[i], (virDim[0]*phyDim, virDim[1]))
+            a,s,v = np.linalg.svd(mat)
+            a,s,v,retain_dim = svd_truncate(a, s, v, cutoff, bondm)
+            # replace mps[i] with a
+            a = np.reshape(a, (virDim[0],phyDim,retain_dim))
+            phi[i] = a
+            # update mps[i+1]
+            mat_s = np.diag(s)
+            v = np.dot(mat_s, v)
+            phi[i+1] = np.einsum('si,iaj->saj', v, phi[i+1])
+        # right normalization (siteNum-1 to pos+1)
+        for i in np.arange(siteNum-1, pos, -1, dtype=int):
+            virDim = [phi[i].shape[0], phi[i].shape[-1]]
+            phyDim = phi[i].shape[1]
+            # i,j: virtual leg; a: physical leg
+            mat = np.reshape(phi[i], (virDim[0], phyDim*virDim[1]))
+            u,s,b = np.linalg.svd(mat)
+            u,s,b,retain_dim = svd_truncate(u, s, b, cutoff, bondm)
+            # replace mps[i] with b
+            b = np.reshape(b, (retain_dim,phyDim,virDim[1]))
+            phi[i] = b
+            # update mps[i-1]
+            mat_s = np.diag(s)
+            u = np.dot(u, mat_s)
+            phi[i-1] = np.einsum('iaj,js->ias', phi[i-1], u)
     return phi
 
 def normalize(psi, cutoff, bondm):
@@ -107,9 +141,9 @@ def normalize(psi, cutoff, bondm):
         largest virtual bond dimension allowed
     """
     phi = copy.copy(psi)
-    center_pos = int(len(phi)/2)
-    position(phi, center_pos, cutoff, bondm)
-    norm = np.tensordot(phi[center_pos], np.conj(phi[center_pos]), ([0,1,2],[0,1,2]))
+    pos = 0     # right canonical
+    phi = position(phi, pos, cutoff, bondm)
+    norm = np.tensordot(phi[pos], np.conj(phi[pos]), ([0,1,2],[0,1,2]))
     norm = np.sqrt(norm)
     phi /= norm
     phi = list(phi)
@@ -131,7 +165,7 @@ def svd_nsite(n, tensor, cutoff, bondm):
     bondm : int
         largest virtual bond dimension allowed
     """
-    if (len(tensor.shape) != 2*n + 2):
+    if (len(tensor.shape) != n + 2):
         sys.exit('Wrong dimension of input tensor')
     virDim = [tensor.shape[0], tensor.shape[-1]]
     phyDim = list(tensor.shape[1:-1])
@@ -176,7 +210,7 @@ def applyMPOtoMPS(mpo, mps, cutoff, bondm):
         result.append(group)
     # restore MPO form by SVD and truncate virtual links
     # set orthogonality center at the middle of the MPO
-    position(result, int(siteNum/2), cutoff, bondm)
+    result = position(result, int(siteNum/2), cutoff, bondm)
     result = normalize(result, cutoff, bondm)
     return result
 
@@ -190,6 +224,10 @@ def overlap(mps1, mps2, cutoff, bondm):
         The MPS above (will be complex-conjugated)
     mps2 : list of numpy arrays
         The MPS below
+    cutoff : float
+        largest value of s_max/s_min
+    bondm : int
+        largest virtual bond dimension allowed
     """
     siteNum = len(mps1)
     if (len(mps2) != siteNum):
@@ -234,8 +272,7 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
     phi = copy.copy(psi)
     nt = int(ttotal/tstep + (1e-9 * (ttotal/tstep)))
     if (np.abs(nt*tstep-ttotal) > 1.0E-9): 
-        print("Timestep not commensurate with total time")
-        sys.exit()
+        sys.exit("Timestep not commensurate with total time")
     gateNum = len(gateList)
 
     for tt in range(nt):
@@ -259,7 +296,7 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
                 ten_AA = np.einsum('ibk,ab->iak',phi[sites[0]],gate)
                 phi[sites[0]] = ten_AA
             # swap gate
-            if len(sites) == 2:
+            elif len(sites) == 2:
                 # gauging and normalizing
                 phi = position(phi, sites[0], cutoff, bondm)
                 # contraction
@@ -324,6 +361,64 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
     # phi = normalize(phi, cutoff, bondm)
     return phi
 
+def sum(mps1, mps2, cutoff, bondm):
+    """
+    Calculate the inner product of two MPS's
+
+    Parameters
+    ------------
+    mps1, mps2 : list of numpy arrays
+        The two MPSs to be added
+    cutoff : float
+        largest value of s_max/s_min
+    bondm : int
+        largest virtual bond dimension allowed
+    """
+    # dimension check
+    if len(mps1) != len(mps2):
+        sys.exit("The lengths of the two MPSs do not match")
+    for i in range(len(mps1)):
+        if mps1[i].shape[1] != mps2[i].shape[1]:
+            sys.exit("The physical dimensions of the two MPSs do not match")
+    result = []
+    # special treatment is need at the first and the last site
+    # for open boundary condition
+
+    # first site
+    i = 0
+    virDim1 = [mps1[i].shape[0], mps1[i].shape[-1]]
+    virDim2 = [mps2[i].shape[0], mps2[i].shape[-1]]
+    phyDim = mps1[i].shape[1]
+    virDim = [virDim1[0], virDim1[1]+virDim2[1]]
+    result.append(np.zeros((virDim[0], phyDim, virDim[1]), dtype=complex))
+    # make row "vector"
+    result[i][0:virDim1[0],:,0:virDim1[1]] = mps1[i]
+    result[i][0:virDim1[0],:,virDim1[1]:virDim[1]] = mps2[i]
+
+    # other sites
+    for i in np.arange(1, len(mps1)-1, 1, dtype=int):
+        virDim1 = [mps1[i].shape[0], mps1[i].shape[-1]]
+        virDim2 = [mps2[i].shape[0], mps2[i].shape[-1]]
+        phyDim = mps1[i].shape[1]
+        virDim = [virDim1[0]+virDim2[0], virDim1[1]+virDim2[1]]
+        result.append(np.zeros((virDim[0], phyDim, virDim[1]), dtype=complex))
+        # direct sum
+        result[i][0:virDim1[0],:,0:virDim1[1]] = mps1[i]
+        result[i][virDim1[0]:virDim[0],:,virDim1[1]:virDim[1]] = mps2[i]
+
+    # last site
+    i = len(mps1) - 1
+    virDim1 = [mps1[i].shape[0], mps1[i].shape[-1]]
+    virDim2 = [mps2[i].shape[0], mps2[i].shape[-1]]
+    phyDim = mps1[i].shape[1]
+    virDim = [virDim1[0]+virDim2[0], virDim1[1]]
+    result.append(np.zeros((virDim[0], phyDim, virDim[1]), dtype=complex))
+    # make column "vector"
+    result[i][0:virDim1[0],:,0:virDim1[1]] = mps1[i]
+    result[i][virDim1[0]:virDim[0],:,0:virDim1[1]] = mps2[i]
+    result = position(result, 5, cutoff, bondm)
+    return result
+
 def save_to_file(psi, filename):
     """
     Save MPS (shape and nonzero elements) to (txt) file
@@ -335,14 +430,14 @@ def save_to_file(psi, filename):
     filename : string
         name of the output file
     """
-    with open(filename, 'a+') as f:
+    with open(filename, 'w+') as f:
         for i in range(len(psi)):
             f.write(str(i) + '\t')
             f.write(str(psi[i].shape[0]) + '\t')
             f.write(str(psi[i].shape[1]) + '\t')
-            f.write(str(psi[i].shape[2]) + '\t')
+            f.write(str(psi[i].shape[2]) + '\n')
             for m,n,p in product(range(psi[i].shape[0]),range(psi[i].shape[1]),range(psi[i].shape[2])):
-                if psi[i][m,n,p] != 0:
+                if np.abs(psi[i][m,n,p]) > 1.0E-12:
                     f.write(str(m) + '\t')
                     f.write(str(n) + '\t')
                     f.write(str(p) + '\t')

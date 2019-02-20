@@ -195,7 +195,7 @@ def makeGateList(allsites, para):
 
         Example
         -----------
-        Suppose a plaquette acts on [11,15,16,20]
+        Suppose a 4-site operator acts on [11,15,16,20]
         It will become [14,15,16,17] after applying the swap gates 
         We NOW add field to site 14,15,16,17 instead of 11,15,16,20
         But we will set putsite[11,15,16,20], not [14,15,16,17] to True

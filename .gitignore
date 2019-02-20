@@ -5,6 +5,7 @@
 ### Program results ###
 result*/
 outfile*
+test*.py
 
 ### VisualStudioCode ###
 .vscode/*
