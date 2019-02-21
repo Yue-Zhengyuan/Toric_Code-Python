@@ -11,7 +11,7 @@
 import numpy as np
 import sys
 from itertools import product
-import para_dict as p
+import ising_para_dict as p
 import lattice
 import copy
 
@@ -176,9 +176,9 @@ def makeGateList(allsites, para):
     for bond in bondTable:
         i, j, dir = bond[0], bond[1], bond[2]
         if dir == 'r':
-            sites = [i + (j-1)*para['nx'], 1 + i + (j-1)*para['nx']]
+            sites = [i + j*para['nx'], 1+i + j*para['nx']]
         elif dir == 'd':
-            sites = [i + (j-1)*para['nx'], i + j*para['nx']]
+            sites = [i + j*para['nx'], i + (j+1)*para['nx']]
     
         sites.sort()
         # create swap gates

@@ -8,7 +8,7 @@
 
 import numpy as np
 import ising_gates
-import para_dict as p
+import ising_para_dict as p
 import lattice as lat
 import mps
 import mpo
@@ -47,19 +47,20 @@ os.makedirs(result_dir, exist_ok=True)
 sz_op = []
 for i in range(p.n):
     sz_op.append(np.zeros((1,2,2,1), dtype=complex))
-coord = [5,5]
+    sz_op[i][0,:,:,0] = p.iden
+coord = [2,2]
 num = coord[1] * para['nx'] + coord[0]
 sz_op[num][0,:,:,0] = p.sz
 
 # create Ising ground state |psi_S>
 # |+z>
 zplus = []
-for i in range(10):
+for i in range(p.n):
     zplus.append(np.zeros((1,2,1), dtype=complex))
     zplus[i][0,0,0] = 1.0
 # |-z>
 zminus = []
-for i in range(10):
+for i in range(p.n):
     zminus.append(np.zeros((1,2,1), dtype=complex))
     zminus[i][0,1,0] = 1.0
 zplus = np.asarray(zplus)
@@ -123,7 +124,7 @@ elif mode == '2':
     gateList = ising_gates.makeGateList(sz_op, para)
     psi_S = mps.gateTEvol(psi_S, gateList, para['ttotal'], para['tau'], cutoff, bondm)
     # S exp(-iHt) |psi_S>
-    psi_S = mps.applyMPOtoMPS(sz_op, psi_S, cutoff, bondm)
+    # psi_S = mps.applyMPOtoMPS(sz_op, psi_S, cutoff, bondm)
     # exp(+iHt) S exp(-iHt) |psi_S>
     for g in gateList:
         g.gate = np.conj(g.gate)

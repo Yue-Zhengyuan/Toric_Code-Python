@@ -50,19 +50,15 @@ def lat_table(size):
         size of the square lattice
     """
     table = [[],[]]
-    # bonds parallel to x
-    # (i, j, 'r')
-    for i in range(size - 1):
-        for j in range(size):
-            table[0].append((i,j,'r'))
-            table[1].append(lat((i,j), 'r', size))
-
-    # bonds parallel to y
-    # (i, j, 'd')
-    for i in range(size):
-        for j in range(size - 1):
-            table[0].append((i,j,'d'))
-            table[1].append(lat((i,j), 'd', size))
+    for j in range(size):
+        for i in range(size):
+            if j != size-1:
+                table[0].append((i,j,'d'))
+                table[1].append(lat((i,j), 'd', size))
+            if i != size-1:
+                table[0].append((i,j,'r'))
+                table[1].append(lat((i,j), 'r', size))
+    
     return table
 
 def inv_lat(num, table):

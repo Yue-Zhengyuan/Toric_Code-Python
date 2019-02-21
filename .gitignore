@@ -6,6 +6,7 @@
 result*/
 outfile*
 test*.py
+test.py
 
 ### VisualStudioCode ###
 .vscode/*

@@ -9,16 +9,12 @@
 import numpy as np
 
 # system parameters
-para = {'nx': 5, 'ny': 5, 
-'U': 10.0, 'g': 10.0, 
-'hz': 0.0, 'hx': 5.0, 'hy': 0.0, 
-'tau': 0.01, 'ttotal': 1.0}
+para = {'nx': 4, 'ny': 4, 
+'J': 10.0, 
+'hz': 0.0, 'hx': 0.0, 'hy': 0.0, 
+'tau': 0.01, 'ttotal': 0.1}
 
-n = 2 * (para['nx'] - 1) * para['ny']
-# Y-boundary
-n -= para['nx'] - 1
-# X-non-periodic
-n += para['ny'] - 1
+n = para['nx'] * para['ny']
 
 # Pauli matrices
 sx = np.array([[0.,1.], [1.,0.]], dtype=complex) / 2

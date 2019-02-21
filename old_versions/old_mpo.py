@@ -13,48 +13,7 @@ import mps
 import gates
 from itertools import product
 
-def combinePhyLeg(op):
-    """
-    Combine the physical legs of an MPO to convert it into MPS
-    """
-    psi = copy.copy(op)
-    for i in range(len(op)):
-        virDim = (op[i].shape[0], op[i].shape[-1])
-        phyDim = op[i].shape[1:-1]
-        psi[i] = np.reshape(psi[i], (virDim[0], np.prod(phyDim), virDim[1]))
-    return psi
-
-def savePhyDim(op):
-    """
-    Save the physical leg dimension of an MPO
-    """
-    allPhyDim = []
-    for i in range(len(op)):
-        allPhyDim.append(op[i].shape[1:-1])
-    return allPhyDim
-
-def decombPhyLeg(psi, allPhyDim):
-    """
-    Decombine the physical legs of an MPS to convert it into MPO
-
-    Parameters
-    -------------
-    allPhyDim: list of two-arrays
-        Physical leg dimension of the MPO on each site
-    """
-    op = copy.copy(psi)
-    for i in range(len(op)):
-        virDim = (op[i].shape[0], op[i].shape[-1])
-        phyDim = allPhyDim[i]
-        newshape = []
-        newshape.append(virDim[0])
-        for dim in phyDim:
-            newshape.append(dim)
-        newshape.append(virDim[1])
-        op[i] = np.reshape(op[i], tuple(newshape))
-    return op
-
-def position(op, pos, cutoff, bondm):
+def position(op, pos, length, cutoff, bondm):
     """
     set the orthogonality center of the MPO
     with respect to only part of the MPO
@@ -65,16 +24,65 @@ def position(op, pos, cutoff, bondm):
         the MPO to be acted on
     pos : int
         the position of the orthogonality center
+    length : int
+        length of the part to be gauged
     cutoff : float
         largest value of s_max/s_min
     bondm : int
         largest virtual bond dimension allowed
     """
     op2 = copy.copy(op)
-    allPhyDim = savePhyDim(op2)
-    op2 = combinePhyLeg(op2)
-    op2 = mps.position(op2, pos, cutoff, bondm, scale=True)
-    op2 = decombPhyLeg(op2, allPhyDim)
+    siteNum = len(op2)
+    if siteNum % 2 == 0:
+        left = pos - int(length/2) + 1
+        right = pos +  int(length/2)
+    else:
+        left = pos - int(length/2)
+        right = pos +  int(length/2)
+
+    if left < 0:
+        left = 0
+        right = length - 1
+    elif right > siteNum - 1:
+        left = siteNum - 1 - length
+        right = siteNum - 1
+
+    # left normalization
+    for i in np.arange(left, pos + 1, 1, dtype=int):
+        virDim = [op2[i].shape[0], op2[i].shape[-1]]
+        phyDim = [op2[i].shape[1], op2[i].shape[2]]
+        # i,j: virtual leg; a,b: physical leg
+        mat = np.einsum('iabj->abij', op2[i])
+        mat = np.reshape(op2[i], (phyDim[0]*phyDim[1]*virDim[0], virDim[1]))
+        a,s,v = np.linalg.svd(mat, full_matrices=False)
+        a,s,v,retain_dim = mps.svd_truncate(a, s, v, cutoff, bondm, normalize=False)
+        # replace op[i] with a
+        a = np.reshape(a, (phyDim[0],phyDim[1],virDim[0],retain_dim))
+        a = np.einsum('abis->iabs', a)
+        op2[i] = a
+        # update op[i+1]
+        mat_s = np.diag(s)
+        v = np.dot(mat_s, v)
+        op2[i+1] = np.einsum('si,iabj->sabj', v, op2[i+1])
+
+    # right normalization
+    for i in np.arange(right, pos, -1, dtype=int):
+        virDim = [op2[i].shape[0], op2[i].shape[-1]]
+        phyDim = [op2[i].shape[1], op2[i].shape[2]]
+        # i,j: virtual leg; a,b: physical leg
+        mat = np.einsum('iabj->ijab', op2[i])
+        mat = np.reshape(op2[i], (virDim[0], virDim[1]*phyDim[0]*phyDim[1]))
+        u,s,b = np.linalg.svd(mat, full_matrices=False)
+        u,s,b,retain_dim = mps.svd_truncate(u, s, b, cutoff, bondm, normalize=False)
+        # replace mps[i] with b
+        b = np.reshape(b, (retain_dim,virDim[1],phyDim[0],phyDim[1]))
+        b = np.einsum('sjab->sabj', b)
+        op2[i] = b
+        # update mps[i-1]
+        mat_s = np.diag(s)
+        u = np.dot(u, mat_s)
+        op2[i-1] = np.einsum('iabj,js->iabs', op2[i-1], u)
+    
     return op2
 
 def svd_nsite(n, tensor, cutoff, bondm):
@@ -103,7 +111,7 @@ def svd_nsite(n, tensor, cutoff, bondm):
         mat = np.reshape(mat, (old_retain_dim * phyDim[2*i] * phyDim[2*i+1], 
         virDim[1] * np.prod(phyDim[2*i+2 : len(phyDim)])))
         u,s,v = np.linalg.svd(mat, full_matrices=False)
-        u,s,v,new_retain_dim = mps.svd_truncate(u, s, v, cutoff, bondm, scale=False)
+        u,s,v,new_retain_dim = mps.svd_truncate(u, s, v, cutoff, bondm, normalize=False)
         mat_s = np.diag(s)
         u = np.dot(u, np.sqrt(mat_s))
         v = np.dot(np.sqrt(mat_s), v)
@@ -255,7 +263,7 @@ def sum(mpo1, mpo2, cutoff, bondm):
         # direct sum
         result[i][0:virDim1[0],:,:,0:virDim1[1]] = mpo1[i]
         result[i][virDim1[0]:virDim[0],:,:,virDim1[1]:virDim[1]] = mpo2[i]
-    result = position(result, 0, cutoff, bondm)
+    result = position(result, int(len(result)/2), len(result), cutoff, bondm)
     return result
 
 def save_to_file(op, filename):

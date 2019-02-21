@@ -12,7 +12,7 @@ import copy
 import gates
 from itertools import product
 
-def svd_truncate(u, s, v, cutoff, bondm, normalize=True):
+def svd_truncate(u, s, v, cutoff, bondm, scale=False):
     """
     Truncate SVD results
 
@@ -29,8 +29,8 @@ def svd_truncate(u, s, v, cutoff, bondm, normalize=True):
         largest value of s_max/s_min
     bondm : int
         largest virtual bond dimension allowed
-    normalize : bool, optional
-        if True, normalize the retained sigular values
+    scale : bool, optional
+        if True, rescale the retained singular values
     """
     # remove zero sigular values
     s = s[np.where(s[:] > 0)[0]]
@@ -39,12 +39,30 @@ def svd_truncate(u, s, v, cutoff, bondm, normalize=True):
     s = s[0:retain_dim]
     u = u[:, 0:retain_dim]
     v = v[0:retain_dim, :]
-    if normalize == True:
+    if scale == True:
         norm = np.linalg.norm(s)
         s /= norm
     return u, s, v, retain_dim
 
-def position(psi, pos, cutoff, bondm):
+def signCorrect(psi_A1, psi_A2):
+    """
+    Remove unwanted minus sign in an SVD result
+    
+    Parameters
+    ----------------
+    psi_A1, psi_A2 : list of numpy arrays
+        the two site tensors to be acted on
+    """
+    phyDim = (psi_A1.shape[1], psi_A2.shape[1])
+    for i, j in product(range(phyDim[0]), range(phyDim[1])):
+        sum1 = np.sum(psi_A1[:,i,:].real)
+        sum2 = np.sum(psi_A2[:,j,:].real)
+        if (sum1 < 0 and sum2 < 0):
+            psi_A1[:,i,:] *= -1
+            psi_A2[:,j,:] *= -1
+    return psi_A1, psi_A2
+
+def position(psi, pos, cutoff, bondm, scale=False):
     """
     set the orthogonality center of the MPS
     
@@ -61,70 +79,41 @@ def position(psi, pos, cutoff, bondm):
     """
     phi = copy.copy(psi)
     siteNum = len(phi)
-    # pos = siteNum -> perform left normalization (0 to siteNum-2)
-    if pos == siteNum - 1:
-        for i in range(siteNum - 1):
-            virDim = [phi[i].shape[0], phi[i].shape[-1]]
-            phyDim = phi[i].shape[1]
-            # i,j: virtual leg; a: physical leg
-            mat = np.reshape(phi[i], (virDim[0]*phyDim, virDim[1]))
-            a,s,v = np.linalg.svd(mat)
-            a,s,v,retain_dim = svd_truncate(a, s, v, cutoff, bondm)
-            # replace mps[i] with a
-            a = np.reshape(a, (virDim[0],phyDim,retain_dim))
-            phi[i] = a
-            # update mps[i+1]
-            mat_s = np.diag(s)
-            v = np.dot(mat_s, v)
-            phi[i+1] = np.einsum('si,iaj->saj', v, phi[i+1])
-    # position = 0 -> perform right normalization (siteNum-1 to 1)
-    elif pos == 0:
-        for i in np.arange(siteNum-1, 0, -1, dtype=int):
-            virDim = [phi[i].shape[0], phi[i].shape[-1]]
-            phyDim = phi[i].shape[1]
-            # i,j: virtual leg; a: physical leg
-            mat = np.reshape(phi[i], (virDim[0], phyDim*virDim[1]))
-            u,s,b = np.linalg.svd(mat)
-            u,s,b,retain_dim = svd_truncate(u, s, b, cutoff, bondm)
-            # replace mps[i] with b
-            b = np.reshape(b, (retain_dim,phyDim,virDim[1]))
-            phi[i] = b
-            # update mps[i-1]
-            mat_s = np.diag(s)
-            u = np.dot(u, mat_s)
-            phi[i-1] = np.einsum('iaj,js->ias', phi[i-1], u)
-    # other cases
-    else:
-        # left normalization (0 to pos)
-        for i in range(pos + 1):
-            virDim = [phi[i].shape[0], phi[i].shape[-1]]
-            phyDim = phi[i].shape[1]
-            # i,j: virtual leg; a: physical leg
-            mat = np.reshape(phi[i], (virDim[0]*phyDim, virDim[1]))
-            a,s,v = np.linalg.svd(mat)
-            a,s,v,retain_dim = svd_truncate(a, s, v, cutoff, bondm)
-            # replace mps[i] with a
-            a = np.reshape(a, (virDim[0],phyDim,retain_dim))
-            phi[i] = a
-            # update mps[i+1]
-            mat_s = np.diag(s)
-            v = np.dot(mat_s, v)
-            phi[i+1] = np.einsum('si,iaj->saj', v, phi[i+1])
-        # right normalization (siteNum-1 to pos+1)
-        for i in np.arange(siteNum-1, pos, -1, dtype=int):
-            virDim = [phi[i].shape[0], phi[i].shape[-1]]
-            phyDim = phi[i].shape[1]
-            # i,j: virtual leg; a: physical leg
-            mat = np.reshape(phi[i], (virDim[0], phyDim*virDim[1]))
-            u,s,b = np.linalg.svd(mat)
-            u,s,b,retain_dim = svd_truncate(u, s, b, cutoff, bondm)
-            # replace mps[i] with b
-            b = np.reshape(b, (retain_dim,phyDim,virDim[1]))
-            phi[i] = b
-            # update mps[i-1]
-            mat_s = np.diag(s)
-            u = np.dot(u, mat_s)
-            phi[i-1] = np.einsum('iaj,js->ias', phi[i-1], u)
+    
+    # left canonization (0 to pos - 1)
+    # if pos == 0, then left canonization will not be performed
+    for i in range(pos):
+        virDim = [phi[i].shape[0], phi[i].shape[-1]]
+        phyDim = phi[i].shape[1]
+        # i,j: virtual leg; a: physical leg
+        mat = np.reshape(phi[i], (virDim[0]*phyDim, virDim[1]))
+        a,s,v = np.linalg.svd(mat)
+        a,s,v,retain_dim = svd_truncate(a, s, v, cutoff, bondm, scale=scale)
+        # replace mps[i] with a
+        a = np.reshape(a, (virDim[0],phyDim,retain_dim))
+        phi[i] = a
+        # update mps[i+1]
+        mat_s = np.diag(s)
+        v = np.dot(mat_s, v)
+        phi[i+1] = np.einsum('si,iaj->saj', v, phi[i+1])
+        # phi[i], phi[i+1] = signCorrect(phi[i], phi[i+1])
+    # right canonization (siteNum-1 to pos+1)
+    # if pos == siteNum-1, then right canonization will not be performed
+    for i in np.arange(siteNum-1, pos, -1, dtype=int):
+        virDim = [phi[i].shape[0], phi[i].shape[-1]]
+        phyDim = phi[i].shape[1]
+        # i,j: virtual leg; a: physical leg
+        mat = np.reshape(phi[i], (virDim[0], phyDim*virDim[1]))
+        u,s,b = np.linalg.svd(mat)
+        u,s,b,retain_dim = svd_truncate(u, s, b, cutoff, bondm, scale=scale)
+        # replace mps[i] with b
+        b = np.reshape(b, (retain_dim,phyDim,virDim[1]))
+        phi[i] = b
+        # update mps[i-1]
+        mat_s = np.diag(s)
+        u = np.dot(u, mat_s)
+        phi[i-1] = np.einsum('iaj,js->ias', phi[i-1], u)
+        # phi[i-1], phi[i] = signCorrect(phi[i-1], phi[i])
     return phi
 
 def normalize(psi, cutoff, bondm):
@@ -145,11 +134,10 @@ def normalize(psi, cutoff, bondm):
     phi = position(phi, pos, cutoff, bondm)
     norm = np.tensordot(phi[pos], np.conj(phi[pos]), ([0,1,2],[0,1,2]))
     norm = np.sqrt(norm)
-    phi /= norm
-    phi = list(phi)
+    phi[pos] /= norm
     return phi
 
-def svd_nsite(n, tensor, cutoff, bondm):
+def svd_nsite(n, tensor, cutoff, bondm, dir='Fromleft'):
     """
     Do SVD to decomposite one large tensor into n site tensors of an MPS
     (u, v are made "positive" in terms of their eigenvalue)
@@ -160,6 +148,8 @@ def svd_nsite(n, tensor, cutoff, bondm):
         number of site tensors to be produces
     tensor : numpy array
         the 2-site tensor to be decomposed
+    dir: 'Fromleft'(default)/'Fromright'
+        if dir == 'left'/'right', the last/first of the n sites will be orthogonality center
     cutoff : float
         largest value of s_max/s_min
     bondm : int
@@ -169,23 +159,39 @@ def svd_nsite(n, tensor, cutoff, bondm):
         sys.exit('Wrong dimension of input tensor')
     virDim = [tensor.shape[0], tensor.shape[-1]]
     phyDim = list(tensor.shape[1:-1])
-    old_retain_dim = virDim[0]
     result = []
     mat = copy.copy(tensor)
-    for i in np.arange(0, n - 1, 1, dtype=int):
-        mat = np.reshape(mat, (old_retain_dim * phyDim[i], 
-        virDim[1] * np.prod(phyDim[i+1 : len(phyDim)])))
-        u,s,v = np.linalg.svd(mat, full_matrices=False)
-        u,s,v,new_retain_dim = svd_truncate(u, s, v, cutoff, bondm)
-        mat_s = np.diag(s)
-        u = np.dot(u, np.sqrt(mat_s))
-        v = np.dot(np.sqrt(mat_s), v)
-        u = np.reshape(u, (old_retain_dim, phyDim[i], new_retain_dim))
+    if dir == 'Fromleft':
+        old_retain_dim = virDim[0]
+        for i in np.arange(0, n - 1, 1, dtype=int):
+            mat = np.reshape(mat, (old_retain_dim * phyDim[i], 
+            virDim[1] * np.prod(phyDim[i+1 : len(phyDim)])))
+            u,s,v = np.linalg.svd(mat, full_matrices=False)
+            u,s,v,new_retain_dim = svd_truncate(u, s, v, cutoff, bondm)
+            mat_s = np.diag(s)
+            v = np.dot(mat_s, v)
+            u = np.reshape(u, (old_retain_dim, phyDim[i], new_retain_dim))
+            result.append(u)
+            mat = copy.copy(v)
+            old_retain_dim = new_retain_dim
+        v = np.reshape(v, (old_retain_dim, phyDim[-1], virDim[-1]))
+        result.append(v)
+    if dir == 'Fromright':
+        old_retain_dim = virDim[1]
+        for i in np.arange(n - 1, 0, -1, dtype=int):
+            mat = np.reshape(mat, (virDim[0] * np.prod(phyDim[0 : i]),
+            phyDim[i] * old_retain_dim))
+            u,s,v = np.linalg.svd(mat, full_matrices=False)
+            u,s,v,new_retain_dim = svd_truncate(u, s, v, cutoff, bondm)
+            mat_s = np.diag(s)
+            u = np.dot(u, mat_s)
+            v = np.reshape(v, (new_retain_dim, phyDim[i], old_retain_dim))
+            result.append(v)
+            mat = copy.copy(u)
+            old_retain_dim = new_retain_dim
+        u = np.reshape(u, (virDim[0], phyDim[0], old_retain_dim))
         result.append(u)
-        mat = copy.copy(v)
-        old_retain_dim = new_retain_dim
-    v = np.reshape(v, (old_retain_dim, phyDim[-1], virDim[-1]))
-    result.append(v)
+        result.reverse()
     return result
 
 def applyMPOtoMPS(mpo, mps, cutoff, bondm):
@@ -275,13 +281,14 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
         sys.exit("Timestep not commensurate with total time")
     gateNum = len(gateList)
 
+    phi = position(phi, gateList[0].sites[0], cutoff, bondm)
     for tt in range(nt):
         for g in range(gateNum):
+            if g == 8 :
+                print('debug')
             gate = gateList[g].gate
             sites = gateList[g].sites
-            # field gate
             if len(sites) == 1:
-                phi = position(phi, sites[0], cutoff, bondm)
                 # contraction
                 #
                 #       a
@@ -295,10 +302,11 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
                 #
                 ten_AA = np.einsum('ibk,ab->iak',phi[sites[0]],gate)
                 phi[sites[0]] = ten_AA
-            # swap gate
+                if g < gateNum - 1:
+                    phi = position(phi, gateList[g+1].sites[0], cutoff, bondm)
+                else:
+                    phi = position(phi, 0, cutoff, bondm)
             elif len(sites) == 2:
-                # gauging and normalizing
-                phi = position(phi, sites[0], cutoff, bondm)
                 # contraction
                 #
                 #       a      c
@@ -312,10 +320,23 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
                 #
                 ten_AA = np.einsum('ibk,kdj,abcd->iacj',phi[sites[0]],phi[sites[1]],gate)
                 # do svd to restore 2 sites
-                result = svd_nsite(2, ten_AA, cutoff, bondm)
-                for i in range(2):
-                    phi[sites[i]] = result[i]
-            # time evolution gate
+                if g < gateNum - 1:
+                    if gateList[g+1].sites[0] >= gateList[g].sites[-1]:
+                        result = svd_nsite(2, ten_AA, cutoff, bondm)
+                        for i in range(2):
+                            phi[sites[i]] = result[i]
+                        phi = position(phi, gateList[g+1].sites[0], cutoff, bondm)
+                    else:
+                        result = svd_nsite(2, ten_AA, cutoff, bondm, dir='Fromright')
+                        for i in range(2):
+                            phi[sites[i]] = result[i]
+                        phi = position(phi, gateList[g+1].sites[1], cutoff, bondm)
+                else:
+                    result = svd_nsite(2, ten_AA, cutoff, bondm)
+                    for i in range(2):
+                            phi[sites[i]] = result[i]
+                    phi = position(phi, 0, cutoff, bondm)
+            
             elif len(sites) == 4:
                 # gauging and normalizing
                 phi = position(phi, sites[1], cutoff, bondm)
@@ -332,33 +353,23 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
                 #
                 ten_AAAA = np.einsum('ibj,jdk,kfl,lhm->ibdfhm',phi[sites[0]],phi[sites[1]],phi[sites[2]],phi[sites[3]])
                 ten_AAAA = np.einsum('ibdfhm,abcdefgh->iacegm',ten_AAAA,gate)
-                # combine 4 sites into 2 sites
-                ten_AAAA = np.reshape(ten_AAAA, (ten_AAAA.shape[0],4,4,ten_AAAA.shape[-1]))
-                result = svd_nsite(2, ten_AAAA, cutoff, bondm)
-                mm1, mm2 = result[0], result[1]
-                # 4 -> 2 + 2
-                del phi[sites[3]]
-                del phi[sites[2]]
-                phi[sites[0]] = mm1
-                phi[sites[1]] = mm2
-                # 2 + 2 -> 1 + 1 + 2
-                phi = position(phi, sites[0], cutoff, bondm)
-                phi[sites[0]] = np.reshape(phi[sites[0]], (phi[sites[0]].shape[0],2,2,phi[sites[0]].shape[-1]))
-                result = svd_nsite(2, phi[sites[0]], cutoff, bondm)
-                phi[sites[0]] = result[0]
-                phi.insert(sites[1], result[1])
-                # 1 + 1 + 2 -> 1 + 1 + 1 + 1
-                phi = position(phi, sites[2], cutoff, bondm)
-                phi[sites[2]] = np.reshape(phi[sites[2]], (phi[sites[2]].shape[0],2,2,phi[sites[2]].shape[-1]))
-                result = svd_nsite(2, phi[sites[2]], cutoff, bondm)
-                phi[sites[2]] = result[0]
-                phi.insert(sites[3], result[1])
+                # do svd to restore 4 sites
+                if g < gateNum:
+                    if gateList[g+1].sites[0] >= gateList[g].sites[-1]:
+                        result = svd_nsite(4, ten_AAAA, cutoff, bondm)
+                    else:
+                        result = svd_nsite(4, ten_AAAA ,cutoff, bondm, dir='Fromright')
+                else:
+                    result = svd_nsite(4, ten_AAAA, cutoff, bondm)
+                for i in range(4):
+                    phi[sites[i]] = result[i]
+                
             # error handling
             else:
                 print('Wrong number of sites')
                 sys.exit()
     # return a guaged and normalized MPS |phi>
-    # phi = normalize(phi, cutoff, bondm)
+    phi = normalize(phi, cutoff, bondm)
     return phi
 
 def sum(mps1, mps2, cutoff, bondm):
@@ -416,8 +427,15 @@ def sum(mps1, mps2, cutoff, bondm):
     # make column "vector"
     result[i][0:virDim1[0],:,0:virDim1[1]] = mps1[i]
     result[i][virDim1[0]:virDim[0],:,0:virDim1[1]] = mps2[i]
-    result = position(result, 5, cutoff, bondm)
+    result = position(result, 0, cutoff, bondm)
     return result
+
+def printdata(psi):
+    for i in range(len(psi)):
+        print('\nSite',i,', Shape',psi[i].shape)
+        for m,n,p in product(range(psi[i].shape[0]),range(psi[i].shape[1]),range(psi[i].shape[2])):
+            if np.abs(psi[i][m,n,p]) > 1.0E-12:
+                print(m,n,p,psi[i][m,n,p])
 
 def save_to_file(psi, filename):
     """
