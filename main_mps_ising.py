@@ -124,7 +124,7 @@ elif mode == '2':
     gateList = ising_gates.makeGateList(sz_op, para)
     psi_S = mps.gateTEvol(psi_S, gateList, para['ttotal'], para['tau'], cutoff, bondm)
     # S exp(-iHt) |psi_S>
-    # psi_S = mps.applyMPOtoMPS(sz_op, psi_S, cutoff, bondm)
+    psi_S = mps.applyMPOtoMPS(sz_op, psi_S, cutoff, bondm)
     # exp(+iHt) S exp(-iHt) |psi_S>
     for g in gateList:
         g.gate = np.conj(g.gate)

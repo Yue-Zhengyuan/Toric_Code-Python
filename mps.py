@@ -40,27 +40,9 @@ def svd_truncate(u, s, v, cutoff, bondm, scale=False):
     u = u[:, 0:retain_dim]
     v = v[0:retain_dim, :]
     if scale == True:
-        norm = np.linalg.norm(s)
-        s /= norm
+        average = np.linalg.sum(s)
+        s /= average
     return u, s, v, retain_dim
-
-def signCorrect(psi_A1, psi_A2):
-    """
-    Remove unwanted minus sign in an SVD result
-    
-    Parameters
-    ----------------
-    psi_A1, psi_A2 : list of numpy arrays
-        the two site tensors to be acted on
-    """
-    phyDim = (psi_A1.shape[1], psi_A2.shape[1])
-    for i, j in product(range(phyDim[0]), range(phyDim[1])):
-        sum1 = np.sum(psi_A1[:,i,:].real)
-        sum2 = np.sum(psi_A2[:,j,:].real)
-        if (sum1 < 0 and sum2 < 0):
-            psi_A1[:,i,:] *= -1
-            psi_A2[:,j,:] *= -1
-    return psi_A1, psi_A2
 
 def position(psi, pos, cutoff, bondm, scale=False):
     """
@@ -148,12 +130,12 @@ def svd_nsite(n, tensor, cutoff, bondm, dir='Fromleft'):
         number of site tensors to be produces
     tensor : numpy array
         the 2-site tensor to be decomposed
-    dir: 'Fromleft'(default)/'Fromright'
-        if dir == 'left'/'right', the last/first of the n sites will be orthogonality center
     cutoff : float
         largest value of s_max/s_min
     bondm : int
         largest virtual bond dimension allowed
+    dir: 'Fromleft'(default)/'Fromright'
+        if dir == 'left'/'right', the last/first of the n sites will be orthogonality center
     """
     if (len(tensor.shape) != n + 2):
         sys.exit('Wrong dimension of input tensor')
@@ -216,7 +198,7 @@ def applyMPOtoMPS(mpo, mps, cutoff, bondm):
         result.append(group)
     # restore MPO form by SVD and truncate virtual links
     # set orthogonality center at the middle of the MPO
-    result = position(result, int(siteNum/2), cutoff, bondm)
+    result = position(result, 0, cutoff, bondm)
     result = normalize(result, cutoff, bondm)
     return result
 
@@ -284,8 +266,6 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
     phi = position(phi, gateList[0].sites[0], cutoff, bondm)
     for tt in range(nt):
         for g in range(gateNum):
-            if g == 8 :
-                print('debug')
             gate = gateList[g].gate
             sites = gateList[g].sites
             if len(sites) == 1:
@@ -372,9 +352,9 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
     phi = normalize(phi, cutoff, bondm)
     return phi
 
-def sum(mps1, mps2, cutoff, bondm):
+def sum(mps1, mps2, cutoff, bondm, scale=False):
     """
-    Calculate the inner product of two MPS's
+    Sum two MPS's
 
     Parameters
     ------------
@@ -392,7 +372,8 @@ def sum(mps1, mps2, cutoff, bondm):
         if mps1[i].shape[1] != mps2[i].shape[1]:
             sys.exit("The physical dimensions of the two MPSs do not match")
     result = []
-    # special treatment is need at the first and the last site
+
+    # special treatment is needed at the first and the last site
     # for open boundary condition
 
     # first site
@@ -427,15 +408,20 @@ def sum(mps1, mps2, cutoff, bondm):
     # make column "vector"
     result[i][0:virDim1[0],:,0:virDim1[1]] = mps1[i]
     result[i][virDim1[0]:virDim[0],:,0:virDim1[1]] = mps2[i]
-    result = position(result, 0, cutoff, bondm)
+
+    # remove useless physical legs (will add later)        
+
+    result = position(result, 0, cutoff, bondm, scale=scale)
     return result
 
 def printdata(psi):
     for i in range(len(psi)):
         print('\nSite',i,', Shape',psi[i].shape)
-        for m,n,p in product(range(psi[i].shape[0]),range(psi[i].shape[1]),range(psi[i].shape[2])):
-            if np.abs(psi[i][m,n,p]) > 1.0E-12:
-                print(m,n,p,psi[i][m,n,p])
+        cond = np.where(np.abs(psi[i]) > 1.0E-10)
+        index = np.transpose(cond)
+        elem = psi[i][cond]
+        for j in range(len(index)):
+            print(index[j], elem[j])
 
 def save_to_file(psi, filename):
     """
@@ -450,16 +436,20 @@ def save_to_file(psi, filename):
     """
     with open(filename, 'w+') as f:
         for i in range(len(psi)):
+            legNum = len(psi[i].shape)
             f.write(str(i) + '\t')
-            f.write(str(psi[i].shape[0]) + '\t')
-            f.write(str(psi[i].shape[1]) + '\t')
-            f.write(str(psi[i].shape[2]) + '\n')
-            for m,n,p in product(range(psi[i].shape[0]),range(psi[i].shape[1]),range(psi[i].shape[2])):
-                if np.abs(psi[i][m,n,p]) > 1.0E-12:
-                    f.write(str(m) + '\t')
-                    f.write(str(n) + '\t')
-                    f.write(str(p) + '\t')
-                    f.write(str(psi[i][m,n,p]) + '\n')
-            # separation line consisting of -1
-            f.write(str(-1) + '\t' + str(-1) + '\t' + str(-1) + '\t' + str(-1) + '\n')
+            for leg in range(legNum):
+                if leg != legNum - 1:
+                    f.write(str(psi[i].shape[leg]) + '\t')
+                else:
+                    f.write(str(psi[i].shape[leg]) + '\n')
+            cond = np.where(np.abs(psi[i]) > 1.0E-10)
+            index = np.transpose(cond)
+            elem = psi[i][cond]
+            for j in range(len(index)):
+                for leg in range(legNum):
+                    f.write(str(index[j, leg]) + '\t')
+                f.write(str(elem[j]) + '\n')
+            # separation line
+            f.write("--------------------\n")
     

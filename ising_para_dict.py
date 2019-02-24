@@ -12,7 +12,7 @@ import numpy as np
 para = {'nx': 4, 'ny': 4, 
 'J': 10.0, 
 'hz': 0.0, 'hx': 0.0, 'hy': 0.0, 
-'tau': 0.01, 'ttotal': 0.1}
+'tau': 0.01, 'ttotal': 1}
 
 n = para['nx'] * para['ny']
 

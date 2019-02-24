@@ -29,18 +29,6 @@ para['hz'] = 0
 # mode = sys.argv[1]
 mode = '2'
 
-# create directory to save result
-# create folder to store results
-# get system time
-current_time = datetime.datetime.now()
-result_dir = 'result_mps'
-result_dir += '_' + str(current_time.year)
-result_dir += '-' + str(current_time.month)
-result_dir += '-' + str(current_time.day)
-result_dir += '_' + str(current_time.hour)
-result_dir += '_' + str(current_time.minute)
-os.makedirs(result_dir, exist_ok=True)
-
 # create local sz operator MPO (S)
 # labelling: [site][L vir leg, R vir leg, U phys leg, D phys leg]
 # len(MPO): number of sites
@@ -68,13 +56,7 @@ zminus = np.asarray(zminus)
 # |psi_S> = (|+z> + |-z>)/sqrt(2)
 psi_S = mps.sum(zplus, zminus, cutoff, bondm)
 psi_S = mps.normalize(psi_S, 100, 100)
-
-# save parameter of current running
-with open(result_dir + '/parameters.txt', 'w+') as file:
-    file.write(json.dumps(p.para))  # use json.loads to do the reverse
-    file.write('\nSite of Sz\n')
-    file.write(str(coord))    # coordinate
-    file.write(str(num))      # site number
+mps.printdata(psi_S)
 
 # exp(+iHt) S exp(-iHt) |psi_S>
 # adiabatic continuation of string operator
@@ -94,7 +76,6 @@ if mode == '0':
         for g in gateList:
             g.gate = np.conj(g.gate)
         psi_S = mps.gateTEvol(psi_S, gateList, para['tau'], para['tau'], cutoff, bondm)
-    mps.save_to_file(psi_S, result_dir + '/adiab_psi.txt')
 
 # quasi-adiabatic continuation of string operator
 elif mode == '1':
@@ -115,7 +96,6 @@ elif mode == '1':
         for g in gateList:
             g.gate = np.conj(g.gate)                # convert to exp(+iHt)
         psi_S = mps.gateTEvol(psi_S, gateList, para['ttotal']/stepNum, para['tau'], cutoff, bondm)
-    mps.save_to_file(psi_S, result_dir + '/quasi_psi.txt')
 
 # no-field Heisenberg evolution of string operator
 elif mode == '2':
@@ -124,4 +104,4 @@ elif mode == '2':
     gateList = ising_gates.makeGateList(sz_op, para)
     psi_S = mps.gateTEvol(psi_S, gateList, para['ttotal'], para['tau'], cutoff, bondm)
     psi_S = mps.normalize(psi_S, cutoff, bondm)
-    mps.save_to_file(psi_S, result_dir + '/no_field_psi.txt')
+    mps.printdata(psi_S)

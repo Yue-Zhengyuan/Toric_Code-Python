@@ -24,7 +24,7 @@ def combinePhyLeg(op):
         psi[i] = np.reshape(psi[i], (virDim[0], np.prod(phyDim), virDim[1]))
     return psi
 
-def savePhyDim(op):
+def getPhyDim(op):
     """
     Save the physical leg dimension of an MPO
     """
@@ -54,7 +54,7 @@ def decombPhyLeg(psi, allPhyDim):
         op[i] = np.reshape(op[i], tuple(newshape))
     return op
 
-def position(op, pos, cutoff, bondm):
+def position(op, pos, cutoff, bondm, scale=True):
     """
     set the orthogonality center of the MPO
     with respect to only part of the MPO
@@ -71,13 +71,13 @@ def position(op, pos, cutoff, bondm):
         largest virtual bond dimension allowed
     """
     op2 = copy.copy(op)
-    allPhyDim = savePhyDim(op2)
+    allPhyDim = getPhyDim(op2)
     op2 = combinePhyLeg(op2)
-    op2 = mps.position(op2, pos, cutoff, bondm, scale=True)
+    op2 = mps.position(op2, pos, cutoff, bondm, scale=scale)
     op2 = decombPhyLeg(op2, allPhyDim)
     return op2
 
-def svd_nsite(n, tensor, cutoff, bondm):
+def svd_nsite(n, tensor, cutoff, bondm, dir='Fromleft'):
     """
     Do SVD to decomposite one large tensor into n site tensors of an MPO
     
@@ -91,28 +91,27 @@ def svd_nsite(n, tensor, cutoff, bondm):
         largest value of s_max/s_min
     bondm : int
         largest virtual bond dimension allowed
+    dir: 'Fromleft'(default)/'Fromright'
+        if dir == 'left'/'right', the last/first of the n sites will be orthogonality center
     """
     if (len(tensor.shape) != 2*n + 2):
         sys.exit('Wrong dimension of input tensor')
+        
+    # combine physical legs to convert MPO to MPS
     virDim = [tensor.shape[0], tensor.shape[-1]]
     phyDim = list(tensor.shape[1:-1])
-    old_retain_dim = virDim[0]
-    result = []
-    mat = copy.copy(tensor)
-    for i in np.arange(0, n - 1, 1, dtype=int):
-        mat = np.reshape(mat, (old_retain_dim * phyDim[2*i] * phyDim[2*i+1], 
-        virDim[1] * np.prod(phyDim[2*i+2 : len(phyDim)])))
-        u,s,v = np.linalg.svd(mat, full_matrices=False)
-        u,s,v,new_retain_dim = mps.svd_truncate(u, s, v, cutoff, bondm, scale=False)
-        mat_s = np.diag(s)
-        u = np.dot(u, np.sqrt(mat_s))
-        v = np.dot(np.sqrt(mat_s), v)
-        u = np.reshape(u, (old_retain_dim, phyDim[2*i], phyDim[2*i+1], new_retain_dim))
-        result.append(u)
-        mat = copy.copy(v)
-        old_retain_dim = new_retain_dim
-    v = np.reshape(v, (old_retain_dim, phyDim[-2], phyDim[-1], virDim[-1]))
-    result.append(v)
+    newshape = [virDim[0]]
+    for i in np.arange(0, len(phyDim), 2, dtype=int):
+        newshape.append(phyDim[i] * phyDim[i+1])
+    newshape.append(virDim[1])
+    newtensor = np.reshape(tensor, newshape)
+
+    result = mps.svd_nsite(n, newtensor, cutoff, bondm, dir=dir)
+    # restore physical legs
+    for i in range(n):
+        newshape = (result[i].shape[0], phyDim[2*i], 
+        phyDim[2*i+1], result[i].shape[-1])
+        result[i] = np.reshape(result[i], newshape)
     return result
 
 def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
@@ -226,7 +225,7 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
     
     return op2
 
-def sum(mpo1, mpo2, cutoff, bondm):
+def sum(mpo1, mpo2, cutoff, bondm, scale=True):
     """
     Calculate the inner product of two MPO's
 
@@ -245,18 +244,19 @@ def sum(mpo1, mpo2, cutoff, bondm):
     for i in range(len(mpo1)):
         if (mpo1[i].shape[1] != mpo2[i].shape[1] or mpo1[i].shape[2] != mpo2[i].shape[2]):
             sys.exit("The physical dimensions of the two MPOs do not match")
-    result = []
-    for i in range(len(mpo1)):
-        virDim1 = [mpo1[i].shape[0], mpo1[i].shape[-1]]
-        virDim2 = [mpo2[i].shape[0], mpo2[i].shape[-1]]
-        phyDim = [mpo1[i].shape[1], mpo1[i].shape[2]]
-        virDim = [virDim1[0]+virDim2[0], virDim1[1]+virDim2[1]]
-        result.append(np.zeros((virDim[0], phyDim[0], phyDim[1], virDim[1]), dtype=complex))
-        # direct sum
-        result[i][0:virDim1[0],:,:,0:virDim1[1]] = mpo1[i]
-        result[i][virDim1[0]:virDim[0],:,:,virDim1[1]:virDim[1]] = mpo2[i]
-    result = position(result, 0, cutoff, bondm)
+
+    mps1 = copy.copy(mpo1)
+    allPhyDim = getPhyDim(mpo1)
+    mps1 = combinePhyLeg(mps1)
+
+    mps2 = copy.copy(mpo2)
+    mps2 = combinePhyLeg(mps2)
+    result = mps.sum(mps1, mps2, cutoff, bondm, scale=scale)
+    result = decombPhyLeg(result, allPhyDim)
     return result
+
+def printdata(op):
+    mps.printdata(op)
 
 def save_to_file(op, filename):
     """
@@ -269,20 +269,5 @@ def save_to_file(op, filename):
     filename : string
         name of the output file
     """
-    with open(filename, 'w+') as f:
-        for i in range(len(op)):
-            f.write(str(i) + '\t')
-            f.write(str(op[i].shape[0]) + '\t')
-            f.write(str(op[i].shape[1]) + '\t')
-            f.write(str(op[i].shape[2]) + '\t')
-            f.write(str(op[i].shape[3]) + '\n')
-            for m,n,p,q in product(range(op[i].shape[0]),range(op[i].shape[1]),range(op[i].shape[2]),range(op[i].shape[3])):
-                if op[i][m,n,p,q] != 0:
-                    f.write(str(m) + '\t')
-                    f.write(str(n) + '\t')
-                    f.write(str(p) + '\t')
-                    f.write(str(q) + '\t')
-                    f.write(str(op[i][m,n,p,q]) + '\n')
-            # separation line consisting of -1
-            f.write(str(-1) + '\t' + str(-1) + '\t' + str(-1) + '\t' + str(-1) + '\t' + str(-1) + '\n')
+    mps.save_to_file(op, filename)
     
