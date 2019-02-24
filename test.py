@@ -29,79 +29,57 @@ para['hz'] = 0
 # mode = sys.argv[1]
 mode = '2'
 
-# create local sz operator MPO (S)
+# create local sx operator MPO
 # labelling: [site][L vir leg, R vir leg, U phys leg, D phys leg]
 # len(MPO): number of sites
-sz_op = []
+sx_op = []
 for i in range(p.n):
-    sz_op.append(np.zeros((1,2,2,1), dtype=complex))
-    sz_op[i][0,:,:,0] = p.iden
+    sx_op.append(np.zeros((1,2,2,1), dtype=complex))
+    sx_op[i][0,:,:,0] = p.iden
 coord = [2,2]
 num = coord[1] * para['nx'] + coord[0]
-sz_op[num][0,:,:,0] = p.sz
+sx_op[num][0,:,:,0] = p.sx
 
-# create Ising ground state |psi_S>
 # |+z>
-zplus = []
+psi_up = []
 for i in range(p.n):
-    zplus.append(np.zeros((1,2,1), dtype=complex))
-    zplus[i][0,0,0] = 1.0
-# |-z>
-zminus = []
-for i in range(p.n):
-    zminus.append(np.zeros((1,2,1), dtype=complex))
-    zminus[i][0,1,0] = 1.0
-zplus = np.asarray(zplus)
-zminus = np.asarray(zminus)
-# |psi_S> = (|+z> + |-z>)/sqrt(2)
-psi_S = mps.sum(zplus, zminus, cutoff, bondm)
-psi_S = mps.normalize(psi_S, 100, 100)
-mps.printdata(psi_S)
+    psi_up.append(np.zeros((1,2,1), dtype=complex))
+    psi_up[i][0,0,0] = 1.0
+
+result = copy.copy(psi_up)
+
+start = time.perf_counter()
 
 # exp(+iHt) S exp(-iHt) |psi_S>
 # adiabatic continuation of string operator
 if mode == '0':
-    stepNum = int(p.para['ttotal'] / p.para['tau'])
+    ttotal = para['ttotal']
+    tstep = para['tau']
+    stepNum = int(ttotal/tstep + (1e-9 * (ttotal/tstep)))
     # exp(-iHt) |psi_S>
-    for hx in np.linspace(0, -p.para['hx'], num=stepNum, dtype=float):
+    for hx in np.linspace(0, p.para['hx'], num=stepNum, dtype=float):
         para['hx'] = hx
-        gateList = ising_gates.makeGateList(sz_op, para)
-        psi_S = mps.gateTEvol(psi_S, gateList, para['tau'], para['tau'], cutoff, bondm)
+        gateList = ising_gates.makeGateList(sx_op, para)
+        result = mps.gateTEvol(result, gateList, para['tau'], para['tau'], cutoff, bondm)
     # S exp(-iHt) |psi_S>
-    psi_S = mps.applyMPOtoMPS(sz_op, psi_S, cutoff, bondm)
+    result = mps.applyMPOtoMPS(sx_op, result, cutoff, bondm)
     # exp(+iHt) S exp(-iHt) |psi_S>
-    for hx in reversed(np.linspace(0, -p.para['hx'], num=stepNum, dtype=float)):
-        para['hx'] = hx
-        gateList = ising_gates.makeGateList(sz_op, para)
-        for g in gateList:
-            g.gate = np.conj(g.gate)
-        psi_S = mps.gateTEvol(psi_S, gateList, para['tau'], para['tau'], cutoff, bondm)
-
-# quasi-adiabatic continuation of string operator
-elif mode == '1':
-    stepNum = 4
-    # exp(-iHt) |psi_S>
-    iter_list = np.linspace(0, -p.para['hx'], num=stepNum+1, dtype=float)
-    iter_list = np.delete(iter_list, 0)
-    for hx in iter_list:
-        para['hx'] = hx
-        gateList = ising_gates.makeGateList(sz_op, para)
-        psi_S = mps.gateTEvol(psi_S, gateList, para['ttotal']/stepNum, para['tau'], cutoff, bondm)
-    # S exp(-iHt) |psi_S>
-    psi_S = mps.applyMPOtoMPS(sz_op, psi_S, cutoff, bondm)
-    # exp(+iHt) S exp(-iHt) |psi_S>
-    for hx in reversed(iter_list):
-        para['hx'] = hx
-        gateList = ising_gates.makeGateList(sz_op, para) # create exp(-iHt)
-        for g in gateList:
-            g.gate = np.conj(g.gate)                # convert to exp(+iHt)
-        psi_S = mps.gateTEvol(psi_S, gateList, para['ttotal']/stepNum, para['tau'], cutoff, bondm)
+    para['J'] *= -1
+    for hx in reversed(np.linspace(0, p.para['hx'], num=stepNum, dtype=float)):
+        para['hx'] = -hx
+        gateList = ising_gates.makeGateList(sx_op, para)
+        result = mps.gateTEvol(result, gateList, para['tau'], para['tau'], cutoff, bondm)
+    mps.printdata(result)
 
 # no-field Heisenberg evolution of string operator
 elif mode == '2':
+    # test one step of time evolution
     # exp(-iHt) |psi_S>
-    para['hx'] = 0.0
-    gateList = ising_gates.makeGateList(sz_op, para)
-    psi_S = mps.gateTEvol(psi_S, gateList, para['ttotal'], para['tau'], cutoff, bondm)
-    psi_S = mps.normalize(psi_S, cutoff, bondm)
-    mps.printdata(psi_S)
+    para['hx'] = 1.0
+    gateList = ising_gates.makeGateList(sx_op, para)
+    result = mps.gateTEvol(result, gateList, para['tau'], para['tau'], cutoff, bondm)
+    mps.printdata(result)
+
+finish = time.perf_counter()
+elapsed = finish - start
+print("Elapsed time:", elapsed, "s\n")
