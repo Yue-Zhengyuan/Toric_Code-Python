@@ -95,7 +95,7 @@ def position(psi, pos, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
 
 def normalize(psi, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
     """
-    Normalize MPS |psi>
+    Normalize MPS |psi> (and set orthogonality center at site 0)
     """
     phi = copy.copy(psi)
     pos = 0     # right canonical
@@ -211,17 +211,15 @@ def overlap(psi1, psi2):
     result = []
     for site in range(siteNum):
         group = np.einsum('iaj,kal->ikjl',np.conj(psi1[site]),psi2[site])
-        shape = group.shape
-        group = np.reshape(group, (shape[0]*shape[1],1,shape[2]*shape[3]))
         result.append(group)
     # restore MPO form by SVD and truncate virtual links
     # set orthogonality center
     # full contraction
     elem = result[0]
     for site in np.arange(1, siteNum, 1, dtype=int):
-        elem = np.tensordot(elem, result[site], axes=3)
+        elem = np.tensordot(elem, result[site], axes=2)
     elem = np.reshape(elem, 1)
-    return elem
+    return elem[0]
 
 def matElem(psi1, op, psi2):
     """
@@ -254,15 +252,13 @@ def matElem(psi1, op, psi2):
     for site in range(siteNum):
         group = np.einsum('iaj,kabl,mbn->ikmjln', 
         np.conj(psi1[site]), op[site], psi2[site])
-        shape = group.shape
-        group = np.reshape(group, (shape[0]*shape[1],1,shape[2]*shape[3]))
         result.append(group)
     # full contraction
     elem = result[0]
     for site in np.arange(1, siteNum, 1, dtype=int):
         elem = np.tensordot(elem, result[site], axes=3)
     elem = np.reshape(elem, 1)
-    return elem
+    return elem[0]
 
 def gateTEvol(psi, gateList, ttotal, tstep, 
 args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
