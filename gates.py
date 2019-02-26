@@ -15,34 +15,6 @@ from itertools import product
 import para_dict as p
 import copy
 
-# index order convention
-# 
-#  Operator
-#       a      c
-#      _|_    _|_
-#  i --| |----| |--j
-#      -|-    -|-
-#       b      d
-#
-#  index order: iabcdj
-#
-#  State
-#       a      b
-#      _|_    _|_
-#  i --| |----| |--j
-#      ---    ---
-#
-#  index order: iabj
-# 
-#  (2-site) Gate
-#       a      c
-#      _|______|_
-#      |        |
-#      -|------|-
-#       b      d
-#
-#  index order: abcd
-
 # exp(x) = 1 + x +  x^2/2! + x^3/3! ..
 # = 1 + x * (1 + x/2 *(1 + x/3 * (...
 # ~ ((x/3 + 1) * x/2 + 1) * x + 1
@@ -83,10 +55,10 @@ class gate(object):
         size of the list should equal that of the whole system
     kind : 'tEvolP'/'tEvolV'/'Swap'
         kind of the gate
-    para : dictionary
+    args : dictionary
         parameters of the system
     """
-    def __init__(self, sites, putsite, kind, para):
+    def __init__(self, sites, putsite, kind, args):
         # members of Gate
         self.sites = copy.copy(sites)
         self.sites.sort()
@@ -107,17 +79,17 @@ class gate(object):
         #   H = - U * \sum(A_p) - g * \sum(B_p) - hz * \sum(Sz) - hx * \sum(Sx)
         # Plaquette operator (with field)
         elif ((self.kind == 'tEvolP') and (siteNum == 4)):
-            ham = np.einsum('ab,cd,ef,gh->abcdefgh', p.sx, p.sx, p.sx, p.sx) * (-para['g'])
+            ham = np.einsum('ab,cd,ef,gh->abcdefgh', p.sx, p.sx, p.sx, p.sx) * (-args['g'])
             # adding field
-            if (para['hx'] != 0 or para['hy'] != 0 or para['hz'] != 0):
-                if para['hx'] != 0:
-                    field = para['hx']
+            if (args['hx'] != 0 or args['hy'] != 0 or args['hz'] != 0):
+                if args['hx'] != 0:
+                    field = args['hx']
                     pauli = p.sx
-                elif para['hy'] != 0:
-                    field = para['hy']
+                elif args['hy'] != 0:
+                    field = args['hy']
                     pauli = p.sy
-                elif para['hz'] != 0:
-                    field = para['hz']
+                elif args['hz'] != 0:
+                    field = args['hz']
                     pauli = p.sz
                 # else: 
                 #     sys.exit('Added field in more than one direction')
@@ -127,12 +99,13 @@ class gate(object):
                         mat_list[i] = pauli
                         ham += np.einsum('ab,cd,ef,gh->abcdefgh', mat_list[0], mat_list[1], mat_list[2], mat_list[3]) * (-field)
             # create gate exp(-iHt/2)
-            ham *= (-para['tau'] / 2) * 1.0j
+            ham *= (-args['tau'] / 2) * 1.0j
             self.gate = toExpH4(ham, expOrder)
+
         # Vertex operator
         elif ((self.kind == 'tEvolV') and (siteNum == 4)):
-            ham = np.einsum('ab,cd,ef,gh->abcdefgh', p.sz, p.sz, p.sz, p.sz) * (-para['U'])
-            ham *= (-para['tau'] / 2) * 1.0j
+            ham = np.einsum('ab,cd,ef,gh->abcdefgh', p.sz, p.sz, p.sz, p.sz) * (-args['U'])
+            ham *= (-args['tau'] / 2) * 1.0j
             self.gate = toExpH4(ham, expOrder)
         # Error handling
         else:
@@ -146,11 +119,13 @@ def cleanGates(gateList):
         if (gateList[j].kind == 'Swap' and gateList[j + 1].kind == 'Swap'
         and gateList[j].sites[0] == gateList[j + 1].sites[0]
         and gateList[j].sites[1] == gateList[j + 1].sites[1]):
+            del gateList[j + 1]
             del gateList[j]
+            j -= 1
         else:
-            j = j + 1
+            j += 1
 
-def makeGateList(allsites, para):
+def makeGateList(allsites, args):
     """
     Create time-evolution/swap gate list
 
@@ -158,7 +133,7 @@ def makeGateList(allsites, para):
     ---------------
     allsites : list of numpy arrays
         MPS/MPO to be acted on
-    para : dictionary
+    args : dictionary
         parameter dictionary
     """
     gateList = []
@@ -167,25 +142,25 @@ def makeGateList(allsites, para):
     swapGates = []
     # open boundary condition
     # make plaquette gates (together with field)
-    if (para['g'] != 0):
-        for i in np.arange(1, p.n - (para['nx']-1), 2 * para['nx'] - 1, dtype=int):
-            for j in np.arange(0, para['nx'] - 1, 1, dtype=int):
+    if (args['g'] != 0):
+        for i in np.arange(1, p.n - (args['nx']-1), 2 * args['nx'] - 1, dtype=int):
+            for j in np.arange(0, args['nx'] - 1, 1, dtype=int):
                 u = i + j
-                l = u + para['nx'] - 1
+                l = u + args['nx'] - 1
                 r = l + 1
-                d = l + para['nx']
+                d = l + args['nx']
                 sites = [u - 1, l - 1, r - 1, d - 1]
                 sites.sort()
                 # create swap gates
                 for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):
-                    swapGates.append(gate([site, site + 1], putsite, 'Swap', para))
+                    swapGates.append(gate([site, site + 1], putsite, 'Swap', args))
                 for site in np.arange(sites[3]-1, sites[2], -1, dtype=int):
-                    swapGates.append(gate([site, site + 1], putsite, 'Swap', para))
+                    swapGates.append(gate([site, site + 1], putsite, 'Swap', args))
                 gateSites = [sites[1]-1, sites[1], sites[1]+1, sites[1]+2]
                 for k in range(len(swapGates)):
                     gateList.append(swapGates[k])
                 # evolution gate (plaquette with field)
-                gateList.append(gate(gateSites, putsite, 'tEvolP', para))
+                gateList.append(gate(gateSites, putsite, 'tEvolP', args))
                 """
                 VERY IMPORTANT:
                 the field is added AFTER swap gate has been applied
@@ -205,25 +180,25 @@ def makeGateList(allsites, para):
                 swapGates.clear()
 
     # make vertex gates
-    if (para['U'] != 0):
-        for i in np.arange(para['nx'] + 1, p.n - 3 * para['nx'] + 2, 2 * para['nx'] - 1, dtype=int):
-            for j in np.arange(0, para['nx'] - 2, 1, dtype=int):
+    if (args['U'] != 0):
+        for i in np.arange(args['nx'] + 1, p.n - 3 * args['nx'] + 2, 2 * args['nx'] - 1, dtype=int):
+            for j in np.arange(0, args['nx'] - 2, 1, dtype=int):
                 u = i + j
-                l = u + para['nx'] - 1
+                l = u + args['nx'] - 1
                 r = l + 1
-                d = l + para['nx']
+                d = l + args['nx']
                 sites = [u - 1, l - 1, r - 1, d - 1]
                 sites.sort()
                 # create swap gates
                 for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):
-                    swapGates.append(gate([site, site + 1], putsite, 'Swap', para))
+                    swapGates.append(gate([site, site + 1], putsite, 'Swap', args))
                 for site in np.arange(sites[3]-1, sites[2], -1, dtype=int):
-                    swapGates.append(gate([site, site + 1], putsite, 'Swap', para))
+                    swapGates.append(gate([site, site + 1], putsite, 'Swap', args))
                 gateSites = [sites[1]-1, sites[1], sites[1]+1, sites[1]+2]
                 for k in range(len(swapGates)):
                     gateList.append(swapGates[k])
                 # evolution gate (vertex)
-                gateList.append(gate(gateSites, putsite, 'tEvolV', para))
+                gateList.append(gate(gateSites, putsite, 'tEvolV', args))
                 # put sites back to the original place
                 for k in reversed(range(len(swapGates))):
                     gateList.append(swapGates[k])

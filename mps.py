@@ -12,56 +12,51 @@ import copy
 import gates
 from itertools import product
 
-def svd_truncate(u, s, v, cutoff, bondm, scale=False):
+def svd_truncate(u, s, v, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
     """
     Truncate SVD results
 
     Returns
     ---------------
-    Truncated u, s, v
+    Truncated u, s, v and
     The keeped number of singular values
     
     Parameters
     ---------------
     u, s, v : numpy array
         np.linalg.svd results
-    cutoff : float
-        largest value of s_max/s_min
-    bondm : int
-        largest virtual bond dimension allowed
-    scale : bool, optional
-        if True, rescale the retained singular values
+    args : dict
+        parameters controlling SVD
     """
+    # get arguments
+    cutoff = args.setdefault('cutoff', 1.0E-5)
+    bondm = args.setdefault('bondm', 200)
+    scale = args.setdefault('scale', False)
     # remove zero sigular values
     s = s[np.where(s[:] > 0)[0]]
-    s_max = max(s)
-    retain_dim = min(bondm, len(np.where(np.abs(s_max/s[:]) < cutoff)[0]))
+    s_sum = np.linalg.norm(s)**2
+    trunc = 0
+    origin_dim = s.shape[0]
+    remove_dim = 0
+    while trunc/s_sum < cutoff:
+        remove_dim += 1
+        trunc += s[-remove_dim]**2
+    remove_dim -= 1
+    retain_dim = min(bondm, origin_dim - remove_dim)
     s = s[0:retain_dim]
     u = u[:, 0:retain_dim]
     v = v[0:retain_dim, :]
     if scale == True:
-        average = np.linalg.sum(s)
+        average = np.average(s)
         s /= average
     return u, s, v, retain_dim
 
-def position(psi, pos, cutoff, bondm, scale=False):
+def position(psi, pos, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
     """
-    set the orthogonality center of the MPS
-    
-    Parameters
-    ----------------
-    psi : list of numpy arrays
-        the MPS to be acted on
-    pos : int
-        the position of the orthogonality center
-    cutoff: float
-        largest value of s_max/s_min
-    bondm : int
-        largest virtual bond dimension allowed
+    set the orthogonality center of the MPS |psi> to pos'th site
     """
     phi = copy.copy(psi)
     siteNum = len(phi)
-    
     # left canonization (0 to pos - 1)
     # if pos == 0, then left canonization will not be performed
     for i in range(pos):
@@ -70,7 +65,7 @@ def position(psi, pos, cutoff, bondm, scale=False):
         # i,j: virtual leg; a: physical leg
         mat = np.reshape(phi[i], (virDim[0]*phyDim, virDim[1]))
         a,s,v = np.linalg.svd(mat)
-        a,s,v,retain_dim = svd_truncate(a, s, v, cutoff, bondm, scale=scale)
+        a,s,v,retain_dim = svd_truncate(a, s, v, args=args)
         # replace mps[i] with a
         a = np.reshape(a, (virDim[0],phyDim,retain_dim))
         phi[i] = a
@@ -87,7 +82,7 @@ def position(psi, pos, cutoff, bondm, scale=False):
         # i,j: virtual leg; a: physical leg
         mat = np.reshape(phi[i], (virDim[0], phyDim*virDim[1]))
         u,s,b = np.linalg.svd(mat)
-        u,s,b,retain_dim = svd_truncate(u, s, b, cutoff, bondm, scale=scale)
+        u,s,b,retain_dim = svd_truncate(u, s, b, args=args)
         # replace mps[i] with b
         b = np.reshape(b, (retain_dim,phyDim,virDim[1]))
         phi[i] = b
@@ -98,28 +93,19 @@ def position(psi, pos, cutoff, bondm, scale=False):
         # phi[i-1], phi[i] = signCorrect(phi[i-1], phi[i])
     return phi
 
-def normalize(psi, cutoff, bondm):
+def normalize(psi, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
     """
-    Normalize MPS
-
-    Parameters
-    ---------------
-    psi : list of numpy arrays
-        MPS to be normalized
-    cutoff : float
-        largest value of s_max/s_min
-    bondm : int
-        largest virtual bond dimension allowed
+    Normalize MPS |psi>
     """
     phi = copy.copy(psi)
     pos = 0     # right canonical
-    phi = position(phi, pos, cutoff, bondm)
+    phi = position(phi, pos, args=args)
     norm = np.tensordot(phi[pos], np.conj(phi[pos]), ([0,1,2],[0,1,2]))
     norm = np.sqrt(norm)
     phi[pos] /= norm
     return phi
 
-def svd_nsite(n, tensor, cutoff, bondm, dir='Fromleft'):
+def svd_nsite(n, tensor, dir, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
     """
     Do SVD to decomposite one large tensor into n site tensors of an MPS
     (u, v are made "positive" in terms of their eigenvalue)
@@ -130,12 +116,10 @@ def svd_nsite(n, tensor, cutoff, bondm, dir='Fromleft'):
         number of site tensors to be produces
     tensor : numpy array
         the 2-site tensor to be decomposed
-    cutoff : float
-        largest value of s_max/s_min
-    bondm : int
-        largest virtual bond dimension allowed
-    dir: 'Fromleft'(default)/'Fromright'
-        if dir == 'left'/'right', the last/first of the n sites will be orthogonality center
+    dir: 'Fromleft'/'Fromright'
+        if dir == 'left'/'right', the last/first of the n sites will be orthogonality center of the n tensors
+    args : dict
+        parameters controlling SVD
     """
     if (len(tensor.shape) != n + 2):
         sys.exit('Wrong dimension of input tensor')
@@ -149,7 +133,7 @@ def svd_nsite(n, tensor, cutoff, bondm, dir='Fromleft'):
             mat = np.reshape(mat, (old_retain_dim * phyDim[i], 
             virDim[1] * np.prod(phyDim[i+1 : len(phyDim)])))
             u,s,v = np.linalg.svd(mat, full_matrices=False)
-            u,s,v,new_retain_dim = svd_truncate(u, s, v, cutoff, bondm)
+            u,s,v,new_retain_dim = svd_truncate(u, s, v, args=args)
             mat_s = np.diag(s)
             v = np.dot(mat_s, v)
             u = np.reshape(u, (old_retain_dim, phyDim[i], new_retain_dim))
@@ -164,7 +148,7 @@ def svd_nsite(n, tensor, cutoff, bondm, dir='Fromleft'):
             mat = np.reshape(mat, (virDim[0] * np.prod(phyDim[0 : i]),
             phyDim[i] * old_retain_dim))
             u,s,v = np.linalg.svd(mat, full_matrices=False)
-            u,s,v,new_retain_dim = svd_truncate(u, s, v, cutoff, bondm)
+            u,s,v,new_retain_dim = svd_truncate(u, s, v, args=args)
             mat_s = np.diag(s)
             u = np.dot(u, mat_s)
             v = np.reshape(v, (new_retain_dim, phyDim[i], old_retain_dim))
@@ -176,69 +160,112 @@ def svd_nsite(n, tensor, cutoff, bondm, dir='Fromleft'):
         result.reverse()
     return result
 
-def applyMPOtoMPS(mpo, mps, cutoff, bondm):
+def applyMPOtoMPS(op, psi, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
     """
-    Multiply MPO and MPS
+    Multiply MPO and MPS: op|psi>
     """
-    siteNum = len(mpo)
-    if (len(mps) != siteNum):
+    siteNum = len(op)
+    if (len(psi) != siteNum):
         print('Number of sites of the two MPOs do not match.')
         sys.exit()
     # dimension check
     for site in range(siteNum):
-        if mpo[site].shape[2] != mps[site].shape[1]:
+        if op[site].shape[2] != psi[site].shape[1]:
             print('Physical leg dimensions of the MPO and the MPS do not match.')
             sys.exit()
     # contraction
     result = []
     for site in range(siteNum):
-        group = np.einsum('iabj,kbl->ikajl',mpo[site],mps[site])
+        group = np.einsum('iabj,kbl->ikajl',op[site],psi[site])
         shape = group.shape
         group = np.reshape(group, (shape[0]*shape[1], shape[2], shape[3]*shape[4]))
         result.append(group)
     # restore MPO form by SVD and truncate virtual links
     # set orthogonality center at the middle of the MPO
-    result = position(result, 0, cutoff, bondm)
-    result = normalize(result, cutoff, bondm)
+    result = position(result, 0, args=args)
+    result = normalize(result, args=args)
     return result
 
-def overlap(mps1, mps2, cutoff, bondm):
+def overlap(psi1, psi2):
     """
-    Calculate the inner product of two MPS's
-
-    Parameters
-    ------------
-    mps1 : list of numpy arrays
-        The MPS above (will be complex-conjugated)
-    mps2 : list of numpy arrays
-        The MPS below
-    cutoff : float
-        largest value of s_max/s_min
-    bondm : int
-        largest virtual bond dimension allowed
+    Calculate the inner product <psi1|psi2>
     """
-    siteNum = len(mps1)
-    if (len(mps2) != siteNum):
+    siteNum = len(psi1)
+    if (len(psi2) != siteNum):
         print('Number of sites of the two MPOs do not match.')
         sys.exit()
     # dimension check
     for site in range(siteNum):
-        if mps1[site].shape[1] != mps2[site].shape[1]:
+        if psi1[site].shape[1] != psi2[site].shape[1]:
             print('Physical leg dimensions of the two MPOs do not match.')
             sys.exit()
-    # contraction
+    # partial contraction
+    #      ___
+    #  i --| |-- j
+    #      -|-
+    #       a
+    #      _|_
+    #  k --| |-- l
+    #      --- 
+    # 
     result = []
     for site in range(siteNum):
-        group = np.einsum('iaj,kal->ikjl',np.conj(mps1[site]),mps2[site])
+        group = np.einsum('iaj,kal->ikjl',np.conj(psi1[site]),psi2[site])
         shape = group.shape
         group = np.reshape(group, (shape[0]*shape[1],1,shape[2]*shape[3]))
         result.append(group)
     # restore MPO form by SVD and truncate virtual links
-    # set orthogonality center at the middle of the MPO
-    position(result, int(siteNum/2), cutoff, bondm)
-    return result
+    # set orthogonality center
+    # full contraction
+    elem = result[0]
+    for site in np.arange(1, siteNum, 1, dtype=int):
+        elem = np.tensordot(elem, result[site], axes=3)
+    elem = np.reshape(elem, 1)
+    return elem
 
-def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
+def matElem(psi1, op, psi2):
+    """
+    Calculate matrix element <psi1|op|psi2>
+    """
+    # site number check
+    if (len(psi1) != len(op) or len(psi2) != len(op)):
+        print('Number of sites of MPS and MPO do not match.')
+        sys.exit()
+    # dimension check
+    siteNum = len(op)
+    for site in range(siteNum):
+        if (psi1[site].shape[1] != op[site].shape[1] or psi2[site].shape[1] != op[site].shape[2]):
+            print('Physical leg dimensions of MPO and MPS do not match.')
+            sys.exit()
+    # partial contraction
+    #      ___
+    #  i --| |-- j
+    #      -|-
+    #       a
+    #      _|_
+    #  k --| |-- l
+    #      -|- 
+    #       b
+    #      _|_
+    #  m --| |-- n
+    #      ---
+    # 
+    result = []
+    for site in range(siteNum):
+        group = np.einsum('iaj,kabl,mbn->ikmjln', 
+        np.conj(psi1[site]), op[site], psi2[site])
+        shape = group.shape
+        group = np.reshape(group, (shape[0]*shape[1],1,shape[2]*shape[3]))
+        result.append(group)
+    # full contraction
+    elem = result[0]
+    for site in np.arange(1, siteNum, 1, dtype=int):
+        elem = np.tensordot(elem, result[site], axes=3)
+    elem = np.reshape(elem, 1)
+    return elem
+
+def gateTEvol(psi, gateList, ttotal, tstep, 
+args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
     """
     Perform time evolution to MPS using Trotter gates
 
@@ -252,10 +279,8 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
         total time of evolution
     tstep : real float number
         time of each evolution step
-    cutoff: float
-        largest value of s_max/s_min
-    bondm : int
-        largest virtual bond dimension allowed
+    args : dict
+        parameters controlling SVD
     """
     phi = copy.copy(psi)
     nt = int(ttotal/tstep + (1e-9 * (ttotal/tstep)))
@@ -263,7 +288,7 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
         sys.exit("Timestep not commensurate with total time")
     gateNum = len(gateList)
 
-    phi = position(phi, gateList[0].sites[0], cutoff, bondm)
+    phi = position(phi, gateList[0].sites[0], args=args)
     for tt in range(nt):
         for g in range(gateNum):
             gate = gateList[g].gate
@@ -283,9 +308,9 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
                 ten_AA = np.einsum('ibk,ab->iak',phi[sites[0]],gate)
                 phi[sites[0]] = ten_AA
                 if g < gateNum - 1:
-                    phi = position(phi, gateList[g+1].sites[0], cutoff, bondm)
+                    phi = position(phi, gateList[g+1].sites[0], args=args)
                 else:
-                    phi = position(phi, 0, cutoff, bondm)
+                    phi = position(phi, 0, args=args)
             elif len(sites) == 2:
                 # contraction
                 #
@@ -302,24 +327,24 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
                 # do svd to restore 2 sites
                 if g < gateNum - 1:
                     if gateList[g+1].sites[0] >= gateList[g].sites[-1]:
-                        result = svd_nsite(2, ten_AA, cutoff, bondm)
+                        result = svd_nsite(2, ten_AA, 'Fromleft', args=args)
                         for i in range(2):
                             phi[sites[i]] = result[i]
-                        phi = position(phi, gateList[g+1].sites[0], cutoff, bondm)
+                        phi = position(phi, gateList[g+1].sites[0], args=args)
                     else:
-                        result = svd_nsite(2, ten_AA, cutoff, bondm, dir='Fromright')
+                        result = svd_nsite(2, ten_AA, args=args, dir='Fromright')
                         for i in range(2):
                             phi[sites[i]] = result[i]
-                        phi = position(phi, gateList[g+1].sites[1], cutoff, bondm)
+                        phi = position(phi, gateList[g+1].sites[-1], args=args)
                 else:
-                    result = svd_nsite(2, ten_AA, cutoff, bondm)
+                    result = svd_nsite(2, ten_AA, 'Fromright', args=args)
                     for i in range(2):
-                            phi[sites[i]] = result[i]
-                    phi = position(phi, 0, cutoff, bondm)
+                        phi[sites[i]] = result[i]
+                    phi = position(phi, 0, args=args)
             
             elif len(sites) == 4:
                 # gauging and normalizing
-                phi = position(phi, sites[1], cutoff, bondm)
+                phi = position(phi, sites[0], args=args)
                 # contraction
                 #
                 #       a      c      e      g
@@ -336,40 +361,45 @@ def gateTEvol(psi, gateList, ttotal, tstep, cutoff, bondm):
                 # do svd to restore 4 sites
                 if g < gateNum:
                     if gateList[g+1].sites[0] >= gateList[g].sites[-1]:
-                        result = svd_nsite(4, ten_AAAA, cutoff, bondm)
+                        result = svd_nsite(4, ten_AAAA, 'Fromleft', args=args)
+                        for i in range(4):
+                            phi[sites[i]] = result[i]
+                        phi = position(phi, gateList[g+1].sites[0], args=args)
                     else:
-                        result = svd_nsite(4, ten_AAAA ,cutoff, bondm, dir='Fromright')
+                        result = svd_nsite(4, ten_AAAA, 'Fromright',args=args)
+                        for i in range(4):
+                            phi[sites[i]] = result[i]
+                        phi = position(phi, gateList[g+1].sites[-1], args=args)
                 else:
-                    result = svd_nsite(4, ten_AAAA, cutoff, bondm)
-                for i in range(4):
-                    phi[sites[i]] = result[i]
+                    result = svd_nsite(4, ten_AAAA, 'Fromright', args=args)
+                    for i in range(4):
+                        phi[sites[i]] = result[i]
+                    phi = position(phi, 0, args=args)
                 
             # error handling
             else:
                 print('Wrong number of sites')
                 sys.exit()
     # return a guaged and normalized MPS |phi>
-    phi = normalize(phi, cutoff, bondm)
+    phi = normalize(phi, args=args)
     return phi
 
-def sum(mps1, mps2, cutoff, bondm, scale=False):
+def sum(psi1, psi2, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
     """
     Sum two MPS's
 
     Parameters
     ------------
-    mps1, mps2 : list of numpy arrays
+    psi1, psi2 : list of numpy arrays
         The two MPSs to be added
-    cutoff : float
-        largest value of s_max/s_min
-    bondm : int
-        largest virtual bond dimension allowed
+    args : dict
+        parameters controlling SVD
     """
     # dimension check
-    if len(mps1) != len(mps2):
+    if len(psi1) != len(psi2):
         sys.exit("The lengths of the two MPSs do not match")
-    for i in range(len(mps1)):
-        if mps1[i].shape[1] != mps2[i].shape[1]:
+    for i in range(len(psi1)):
+        if psi1[i].shape[1] != psi2[i].shape[1]:
             sys.exit("The physical dimensions of the two MPSs do not match")
     result = []
 
@@ -378,46 +408,49 @@ def sum(mps1, mps2, cutoff, bondm, scale=False):
 
     # first site
     i = 0
-    virDim1 = [mps1[i].shape[0], mps1[i].shape[-1]]
-    virDim2 = [mps2[i].shape[0], mps2[i].shape[-1]]
-    phyDim = mps1[i].shape[1]
+    virDim1 = [psi1[i].shape[0], psi1[i].shape[-1]]
+    virDim2 = [psi2[i].shape[0], psi2[i].shape[-1]]
+    phyDim = psi1[i].shape[1]
     virDim = [virDim1[0], virDim1[1]+virDim2[1]]
     result.append(np.zeros((virDim[0], phyDim, virDim[1]), dtype=complex))
     # make row "vector"
-    result[i][0:virDim1[0],:,0:virDim1[1]] = mps1[i]
-    result[i][0:virDim1[0],:,virDim1[1]:virDim[1]] = mps2[i]
+    result[i][0:virDim1[0],:,0:virDim1[1]] = psi1[i]
+    result[i][0:virDim1[0],:,virDim1[1]:virDim[1]] = psi2[i]
 
     # other sites
-    for i in np.arange(1, len(mps1)-1, 1, dtype=int):
-        virDim1 = [mps1[i].shape[0], mps1[i].shape[-1]]
-        virDim2 = [mps2[i].shape[0], mps2[i].shape[-1]]
-        phyDim = mps1[i].shape[1]
+    for i in np.arange(1, len(psi1)-1, 1, dtype=int):
+        virDim1 = [psi1[i].shape[0], psi1[i].shape[-1]]
+        virDim2 = [psi2[i].shape[0], psi2[i].shape[-1]]
+        phyDim = psi1[i].shape[1]
         virDim = [virDim1[0]+virDim2[0], virDim1[1]+virDim2[1]]
         result.append(np.zeros((virDim[0], phyDim, virDim[1]), dtype=complex))
         # direct sum
-        result[i][0:virDim1[0],:,0:virDim1[1]] = mps1[i]
-        result[i][virDim1[0]:virDim[0],:,virDim1[1]:virDim[1]] = mps2[i]
+        result[i][0:virDim1[0],:,0:virDim1[1]] = psi1[i]
+        result[i][virDim1[0]:virDim[0],:,virDim1[1]:virDim[1]] = psi2[i]
 
     # last site
-    i = len(mps1) - 1
-    virDim1 = [mps1[i].shape[0], mps1[i].shape[-1]]
-    virDim2 = [mps2[i].shape[0], mps2[i].shape[-1]]
-    phyDim = mps1[i].shape[1]
+    i = len(psi1) - 1
+    virDim1 = [psi1[i].shape[0], psi1[i].shape[-1]]
+    virDim2 = [psi2[i].shape[0], psi2[i].shape[-1]]
+    phyDim = psi1[i].shape[1]
     virDim = [virDim1[0]+virDim2[0], virDim1[1]]
     result.append(np.zeros((virDim[0], phyDim, virDim[1]), dtype=complex))
     # make column "vector"
-    result[i][0:virDim1[0],:,0:virDim1[1]] = mps1[i]
-    result[i][virDim1[0]:virDim[0],:,0:virDim1[1]] = mps2[i]
+    result[i][0:virDim1[0],:,0:virDim1[1]] = psi1[i]
+    result[i][virDim1[0]:virDim[0],:,0:virDim1[1]] = psi2[i]
 
     # remove useless physical legs (will add later)        
 
-    result = position(result, 0, cutoff, bondm, scale=scale)
+    result = position(result, 0, args=args)
     return result
 
 def printdata(psi):
+    """
+    Print MPS to screen
+    """
     for i in range(len(psi)):
         print('\nSite',i,', Shape',psi[i].shape)
-        cond = np.where(np.abs(psi[i]) > 1.0E-10)
+        cond = np.where(np.abs(psi[i]) > 1.0E-6)
         index = np.transpose(cond)
         elem = psi[i][cond]
         for j in range(len(index)):
