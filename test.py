@@ -20,21 +20,29 @@ import os
 import json
 
 args = copy.copy(p.args)
+args['scale'] = True
 # clear magnetic field
-args['hx'] = 0
-args['hy'] = 0
-args['hz'] = 0
-# mode = sys.argv[1]
-mode = '2'
+args['hx'] = 0.0
+args['hy'] = 0.0
+args['hz'] = 0.0
 
-# create string operator MPO (S)
-# labelling: [site][L vir leg, R vir leg, U phys leg, D phys leg]
-# len(MPO): number of sites
+# create Toric Code ground state |psi>
+psi = gnd_state.gnd_state_builder(args)
+
+# exp(-iHt)|psi> (With field along z)
+tstart = time.perf_counter()
+gateList = gates.makeGateList(psi, args)
+psi = mps.gateTEvol(psi, gateList, args['ttotal'], args['tau'], args=args)
+tend = time.perf_counter()
+print("Time evolution:", tend-tstart, "s")
+
+# create closed string operator MPO enclosing different area(S)
+# listing edges of the closed string
+bond_on_str = [(2,2,'r'),(3,2,'d'),(2,3,'r'),(2,2,'d')]
 str_op = []
 for i in range(p.n):
     str_op.append(np.zeros((1,2,2,1), dtype=complex))
-# closed string
-bond_on_str = [(2,2,'r'),(3,2,'d'),(2,3,'r'),(2,2,'d')]
+
 # convert coordinate to unique number in 1D
 bond_list = []
 for bond in bond_on_str:
@@ -44,16 +52,6 @@ for i in range(p.n):
         str_op[i][0,:,:,0] = p.sx
     else:
         str_op[i][0,:,:,0] = p.iden
-
-# create Toric Code ground state |psi>
-psi = gnd_state.gnd_state_builder(args)
-
-# exp(-iHt)|psi> (No field)
-tstart = time.perf_counter()
-gateList = gates.makeGateList(str_op, args)
-psi = mps.gateTEvol(psi, gateList, args['ttotal'], args['tau'], args=args)
-tend = time.perf_counter()
-print("Time evolution:", tend-tstart, "s")
 
 result = mps.matElem(psi, str_op, psi)
 

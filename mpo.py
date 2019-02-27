@@ -54,7 +54,7 @@ def decombPhyLeg(psi, allPhyDim):
         op[i] = np.reshape(op[i], tuple(newshape))
     return op
 
-def position(op, pos, cutoff, bondm, scale=True):
+def position(op, pos, args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
     """
     set the orthogonality center of the MPO
     with respect to only part of the MPO
@@ -73,11 +73,11 @@ def position(op, pos, cutoff, bondm, scale=True):
     op2 = copy.copy(op)
     allPhyDim = getPhyDim(op2)
     op2 = combinePhyLeg(op2)
-    op2 = mps.position(op2, pos, cutoff, bondm, scale=scale)
+    op2 = mps.position(op2, pos, args=args)
     op2 = decombPhyLeg(op2, allPhyDim)
     return op2
 
-def svd_nsite(n, tensor, cutoff, bondm, dir='Fromleft'):
+def svd_nsite(n, tensor, dir, args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
     """
     Do SVD to decomposite one large tensor into n site tensors of an MPO
     
@@ -96,7 +96,6 @@ def svd_nsite(n, tensor, cutoff, bondm, dir='Fromleft'):
     """
     if (len(tensor.shape) != 2*n + 2):
         sys.exit('Wrong dimension of input tensor')
-        
     # combine physical legs to convert MPO to MPS
     virDim = [tensor.shape[0], tensor.shape[-1]]
     phyDim = list(tensor.shape[1:-1])
@@ -106,7 +105,7 @@ def svd_nsite(n, tensor, cutoff, bondm, dir='Fromleft'):
     newshape.append(virDim[1])
     newtensor = np.reshape(tensor, newshape)
 
-    result = mps.svd_nsite(n, newtensor, cutoff, bondm, dir=dir)
+    result = mps.svd_nsite(n, newtensor, dir, args=args)
     # restore physical legs
     for i in range(n):
         newshape = (result[i].shape[0], phyDim[2*i], 
@@ -114,7 +113,8 @@ def svd_nsite(n, tensor, cutoff, bondm, dir='Fromleft'):
         result[i] = np.reshape(result[i], newshape)
     return result
 
-def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
+def gateTEvol(op, gateList, ttotal, tstep, 
+args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
     """
     Perform time evolution to MPO using Trotter gates
 
@@ -128,25 +128,22 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
         total time of evolution
     tstep : real float number
         time of each evolution step
-    cutoff: float
-        largest value of s_max/s_min
-    bondm : int
-        largest virtual bond dimension allowed
+    args : dict
+        parameters controlling SVD
     """
     op2 = copy.copy(op)
-    # number of steps
     nt = int(ttotal/tstep + (1e-9 * (ttotal/tstep)))
     if (np.abs(nt*tstep-ttotal) > 1.0E-9): 
         print("Timestep not commensurate with total time")
         sys.exit()
     gateNum = len(gateList)
 
+    op2 = position(op2, gateList[0].sites[0], args=args)
     for tt in range(nt):
         for g in range(gateNum):
             gate2 = gateList[g].gate
             sites = gateList[g].sites
             gate = np.conj(gate2)
-            # field gate
             if len(sites) == 1:
                 # op2 = position(op2, sites[0], 10, cutoff, bondm)
                 # contraction
@@ -168,6 +165,10 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
                 ten_AA = np.einsum('ibek,ab->iaek',op2[sites[0]],gate)
                 ten_AA = np.einsum('iaek,ef->iafk',ten_AA,gate2)
                 op2[sites[0]] = ten_AA
+                if g < gateNum - 1:
+                    op2 = position(op2, gateList[g+1].sites[0], args=args)
+                else:
+                    op2 = position(op2, 0, args=args)
             # swap gate
             elif len(sites) == 2:
                 # op2 = position(op2, sites[0], 10, cutoff, bondm)
@@ -190,13 +191,24 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
                 ten_AA = np.einsum('ibek,kdgj,abcd->iaecgj',op2[sites[0]],op2[sites[1]],gate)
                 ten_AA = np.einsum('iaecgj,efgh->iafchj',ten_AA,gate2)
                 # do svd to restore 2 sites
-                result = svd_nsite(2, ten_AA, cutoff, bondm)
-                for i in range(2):
-                    op2[sites[i]] = result[i]
+                if g < gateNum - 1:
+                    if gateList[g+1].sites[0] >= gateList[g].sites[-1]:
+                        result = svd_nsite(2, ten_AA, 'Fromleft', args=args)
+                        for i in range(2):
+                            op2[sites[i]] = result[i]
+                        op2 = position(op2, gateList[g+1].sites[0], args=args)
+                    else:
+                        result = svd_nsite(2, ten_AA, args=args, dir='Fromright')
+                        for i in range(2):
+                            op2[sites[i]] = result[i]
+                        op2 = position(op2, gateList[g+1].sites[-1], args=args)
+                else:
+                    result = svd_nsite(2, ten_AA, 'Fromright', args=args)
+                    for i in range(2):
+                        op2[sites[i]] = result[i]
+                    op2 = position(op2, 0, args=args)
             # time evolution gate
             elif len(sites) == 4:
-                # gauging and normalizing
-                # op2 = position(op2, sites[1], 10, cutoff, bondm)
                 # contraction
                 #
                 #       a      c      e      g
@@ -216,42 +228,53 @@ def gateTEvol(op, gateList, ttotal, tstep, cutoff, bondm):
                 ten_AAAA = np.einsum('ibsj,jduk,kfwl,lhym->ibsdufwhym',op2[sites[0]],op2[sites[1]],op2[sites[2]],op2[sites[3]])
                 ten_AAAA = np.einsum('abcdefgh,ibsdufwhym->iascuewgym',gate,ten_AAAA)
                 ten_AAAA = np.einsum('iascuewgym,stuvwxyz->iatcvexgzm',ten_AAAA,gate2)
-                result = svd_nsite(4, ten_AAAA, cutoff, bondm)
-                for i in range(4):
-                    op2[sites[i]] = result[i]
+                if g < gateNum:
+                    if gateList[g+1].sites[0] >= gateList[g].sites[-1]:
+                        result = svd_nsite(4, ten_AAAA, 'Fromleft', args=args)
+                        for i in range(4):
+                            op2[sites[i]] = result[i]
+                        op2 = position(op2, gateList[g+1].sites[0], args=args)
+                    else:
+                        result = svd_nsite(4, ten_AAAA, 'Fromright',args=args)
+                        for i in range(4):
+                            op2[sites[i]] = result[i]
+                        op2 = position(op2, gateList[g+1].sites[-1], args=args)
+                else:
+                    result = svd_nsite(4, ten_AAAA, 'Fromright', args=args)
+                    for i in range(4):
+                        op2[sites[i]] = result[i]
+                    op2 = position(op2, 0, args=args)
             # error handling
             else:
                 sys.exit('Wrong number of sites of gate')
     
     return op2
 
-def sum(mpo1, mpo2, cutoff, bondm, scale=True):
+def sum(op1, op2, args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
     """
     Calculate the inner product of two MPO's
 
     Parameters
     ------------
-    mpo1, mpo2 : list of numpy arrays
+    op1, op2 : list of numpy arrays
         The two MPOs to be added
-    cutoff : float
-        largest value of s_max/s_min
-    bondm : int
-        largest virtual bond dimension allowed
+    args : dict
+        parameters controlling SVD
     """
     # dimension check
-    if len(mpo1) != len(mpo2):
+    if len(op1) != len(op2):
         sys.exit("The lengths of the two MPOs do not match")
-    for i in range(len(mpo1)):
-        if (mpo1[i].shape[1] != mpo2[i].shape[1] or mpo1[i].shape[2] != mpo2[i].shape[2]):
+    for i in range(len(op1)):
+        if (op1[i].shape[1] != op2[i].shape[1] or op1[i].shape[2] != op2[i].shape[2]):
             sys.exit("The physical dimensions of the two MPOs do not match")
 
-    mps1 = copy.copy(mpo1)
-    allPhyDim = getPhyDim(mpo1)
-    mps1 = combinePhyLeg(mps1)
+    psi1 = copy.copy(op1)
+    allPhyDim = getPhyDim(op1)
+    psi1 = combinePhyLeg(psi1)
 
-    mps2 = copy.copy(mpo2)
-    mps2 = combinePhyLeg(mps2)
-    result = mps.sum(mps1, mps2, cutoff, bondm, scale=scale)
+    psi2 = copy.copy(op2)
+    psi2 = combinePhyLeg(psi2)
+    result = mps.sum(psi1, psi2, args=args)
     result = decombPhyLeg(result, allPhyDim)
     return result
 
@@ -261,13 +284,6 @@ def printdata(op):
 def save_to_file(op, filename):
     """
     Save MPO (shape and nonzero elements) to (txt) file
-
-    Parameters
-    ----------
-    op : list of numpy arrays
-        the MPO to be written to file
-    filename : string
-        name of the output file
     """
     mps.save_to_file(op, filename)
     

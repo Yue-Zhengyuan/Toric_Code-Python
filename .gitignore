@@ -8,6 +8,9 @@ outfile*
 test*.py
 test.py
 
+### Backups ###
+old_versions/
+
 ### VisualStudioCode ###
 .vscode/*
 !.vscode/settings.json

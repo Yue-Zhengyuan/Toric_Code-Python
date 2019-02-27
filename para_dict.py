@@ -10,10 +10,10 @@ import numpy as np
 
 # system parameters
 args = {'nx': 5, 'ny': 5, 
-'U': 10.0, 'g': 10.0, 
-'hz': 0.0, 'hx': 0.0, 'hy': 0.0, 
-'tau': 0.01, 'ttotal': 0.1, 
-'cutoff': 1.0E-5, 'bondm': 200, 'scale': False}
+'U': 10.0, 'g': 1.0, 
+'hz': 1.0, 'hx': 0.0, 'hy': 0.0, 
+'tau': 0.01, 'ttotal': 1, 
+'cutoff': 1.0E-6, 'bondm': 200, 'scale': False}
 
 n = 2 * (args['nx'] - 1) * args['ny']
 # Y-boundary

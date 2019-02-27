@@ -22,6 +22,7 @@ import json
 cutoff = 100
 bondm = 32
 args = copy.copy(p.args)
+args['scale'] = True
 # clear magnetic field
 args['hx'] = 0
 args['hy'] = 0
@@ -77,7 +78,7 @@ if mode == '0':
     for hz in np.linspace(0, -p.args['hx'], num=stepNum, dtype=float):
         args['hz'] = hz
         gateList = gates.makeGateList(str_op, args)
-        adiab_op = mpo.gateTEvol(adiab_op, gateList, args['tau'], args['tau'], cutoff, bondm)
+        adiab_op = mpo.gateTEvol(adiab_op, gateList, args['tau'], args['tau'], args=args)
     mpo.save_to_file(adiab_op, result_dir + '/adiab_op.txt')
 
 # quasi-adiabatic continuation of string operator
@@ -89,7 +90,7 @@ elif mode == '1':
     for hz in iter_list:
         args['hz'] = hz
         gateList = gates.makeGateList(str_op, args)
-        quasi_op = mpo.gateTEvol(quasi_op, gateList, args['ttotal']/stepNum, args['tau'], cutoff, bondm)
+        quasi_op = mpo.gateTEvol(quasi_op, gateList, args['ttotal']/stepNum, args['tau'], args=args)
     mpo.save_to_file(quasi_op, result_dir + '/quasi_op.txt')
 
 # no-field Heisenberg evolution of string operator
@@ -97,5 +98,5 @@ elif mode == '2':
     no_field_op = copy.copy(str_op)
     args['hz'] = 0.0
     gateList = gates.makeGateList(str_op, args)
-    no_field_op = mpo.gateTEvol(no_field_op, gateList, args['ttotal'], args['tau'], cutoff, bondm)
+    no_field_op = mpo.gateTEvol(no_field_op, gateList, args['ttotal'], args['tau'], args=args)
     mpo.save_to_file(no_field_op, result_dir + '/no_field_op.txt')

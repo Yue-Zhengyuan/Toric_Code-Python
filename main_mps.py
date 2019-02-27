@@ -11,7 +11,7 @@ import gates
 import para_dict as p
 import lattice as lat
 import mps
-# import mpo
+import gnd_state
 import sys
 import copy
 import time
@@ -19,111 +19,111 @@ import datetime
 import os
 import json
 
-cutoff = 100
-bondm = 32
 args = copy.copy(p.args)
 # clear magnetic field
-args['hx'] = 0
-args['hy'] = 0
-args['hz'] = 0
-# mode = sys.argv[1]
-mode = '2'
+args['hx'] = 0.0
+args['hy'] = 0.0
+args['hz'] = 0.0
 
-# create directory to save result
-# create folder to store results
+# create closed string operator MPO enclosing different area(S)
+bond_on_str = []
+# listing edges of the closed string
+# area = 1
+bond_on_str.append(((2,2,'r'),(3,2,'d'),(2,3,'r'),(2,2,'d'),1))
+bond_on_str.append(((1,1,'r'),(2,1,'d'),(1,2,'r'),(1,1,'d'),1))
+# area = 2
+bond_on_str.append(((1,1,'r'),(2,1,'d'),(2,2,'d'),(1,3,'r'),(1,2,'d'),(1,1,'d'),2))
+bond_on_str.append(((1,2,'r'),(2,2,'r'),(3,2,'d'),(2,3,'r'),(1,3,'r'),(1,2,'d'),2))
+# area = 3
+bond_on_str.append(((1,1,'r'),(2,1,'d'),(2,2,'r'),(3,2,'d'),
+(2,3,'r'),(1,3,'r'),(1,2,'d'),(1,1,'d'),3))
+bond_on_str.append(((1,1,'r'),(2,1,'r'),(3,1,'r'),(4,1,'d'),
+(3,2,'r'),(2,2,'r'),(1,2,'r'),(1,1,'d'),3))
+# area = 4
+bond_on_str.append(((1,1,'r'),(2,1,'r'),(3,1,'d'),(3,2,'d'),
+(2,3,'r'),(1,3,'r'),(1,2,'d'),(1,1,'d'),4))
+bond_on_str.append(((1,1,'r'),(2,1,'r'),(3,1,'d'),(3,2,'r'),
+(4,2,'d'),(3,3,'r'),(2,3,'r'),(2,2,'d'),(1,2,'r'),(1,1,'d'),4))
+bond_on_str.append(((1,1,'r'),(2,1,'r'),(3,1,'r'),(4,1,'d'),
+(3,2,'r'),(2,2,'r'),(2,2,'d'),(1,3,'r'),(1,2,'d'),(1,1,'d'),4))
+bond_on_str.append(((0,2,'r'),(1,2,'r'),(2,2,'r'),(3,2,'r'),
+(4,2,'d'),(3,3,'r'),(2,3,'r'),(1,3,'r'),(0,3,'r'),(0,2,'d'),4))
+# area = 5
+bond_on_str.append(((1,1,'r'),(2,1,'r'),(3,1,'d'),(3,2,'r'),
+(4,2,'d'),(3,3,'r'),(2,3,'r'),(1,3,'r'),(1,2,'d'),(1,1,'d'),5))
+bond_on_str.append(((0,1,'r'),(1,1,'r'),(2,1,'d'),(2,2,'r'),
+(3,2,'r'),(4,2,'d'),(3,3,'r'),(2,3,'r'),(1,3,'r'),(1,2,'d'),
+(0,2,'r'),(0,1,'d'),5))
+bond_on_str.append(((0,1,'r'),(1,1,'r'),(2,1,'r'),(3,1,'r'),
+(4,1,'d'),(4,2,'d'),(3,3,'r'),(3,2,'d'),(2,2,'r'),(1,2,'r'),
+(0,2,'r'),(0,1,'d'),5))
+# area = 6
+bond_on_str.append(((1,1,'r'),(2,1,'r'),(3,1,'r'),(4,1,'d'),
+(4,2,'d'),(3,3,'r'),(2,3,'r'),(1,3,'r'),(1,2,'d'),(1,1,'d'),6))
+bond_on_str.append(((0,1,'r'),(1,1,'r'),(2,1,'r'),(3,1,'d'),
+(3,2,'r'),(4,2,'d'),(3,3,'r'),(2,3,'r'),(1,3,'r'),(1,2,'d'),
+(0,2,'r'),(0,1,'d'),6))
+
+# create result directory
 # get system time
-current_time = datetime.datetime.now()
-result_dir = 'result_mps'
-result_dir += '_' + str(current_time.year)
-result_dir += '-' + str(current_time.month)
-result_dir += '-' + str(current_time.day)
-result_dir += '_' + str(current_time.hour)
-result_dir += '_' + str(current_time.minute)
+nowtime = datetime.datetime.now()
+result_dir = '_'.join(['result_mps', str(nowtime.year), str(nowtime.month), 
+str(nowtime.day), str(nowtime.hour), str(nowtime.minute)])
 os.makedirs(result_dir, exist_ok=True)
 
-# create string operator MPO (S)
-# labelling: [site][L vir leg, R vir leg, U phys leg, D phys leg]
-# len(MPO): number of sites
-str_op = []
-for i in range(p.n):
-    str_op.append(np.zeros((1,2,2,1), dtype=complex))
-# string along x
-bond_on_str = [(8,10,'r'),(9,10,'r'),(10,10,'r'),(11,10,'r'),(12,10,'r')]
-# string along y
-# bond_on_str = [(10,8,'d'),(10,9,'d'),(10,10,'d'),(10,11,'d'),(10,12,'d')]
-# convert coordinate to unique number
-bond_list = []
-for bond in bond_on_str:
-    bond_list.append(lat.lat(bond[0:2],bond[2],args['nx']))
-for i in range(p.n):
-    if i in bond_list:
-        str_op[i][0,:,:,0] = p.sx
-    else:
-        str_op[i][0,:,:,0] = p.iden
-
-# create Ising ground state |psi>
-psi = []
-for i in range(p.n):
-    psi.append(np.zeros((1,2,1), dtype=complex))
-    psi[i][0,0,0] = 1.0
-
-# save parameter of current running
+# save parameters
 with open(result_dir + '/parameters.txt', 'w+') as file:
     file.write(json.dumps(p.args))  # use json.loads to do the reverse
-    file.write('\nSites on String\n')
-    file.write(str(bond_on_str))    # coordinate
-    file.write(str(bond_list))      # bond number
+    file.write('\n\nUsing String Operators:')
+    for string in bond_on_str:
+        file.write('\n\n')
+        file.write(str(string))    # coordinate
 
-# exp(+iHt) S exp(-iHt) |psi>
-# adiabatic continuation of string operator
-if mode == '0':
-    ttotal = args['ttotal']
-    tstep = args['tau']
-    stepNum = int(ttotal/tstep + (1e-9 * (ttotal/tstep)))
-    # exp(-iHt) |psi_S>
-    for hx in np.linspace(0, p.args['hx'], num=stepNum, dtype=float):
-        args['hx'] = hx
-        gateList = gates.makeGateList(str_op, args)
-        result = mps.gateTEvol(result, gateList, args['tau'], args['tau'], args=args)
-    # S exp(-iHt) |psi_S>
-    result = mps.applyMPOtoMPS(str_op, result, args=args)
-    # exp(+iHt) S exp(-iHt) |psi_S>
-    args['J'] *= -1
-    for hx in reversed(np.linspace(0, p.args['hx'], num=stepNum, dtype=float)):
-        args['hx'] = -hx
-        gateList = gates.makeGateList(str_op, args)
-        result = mps.gateTEvol(result, gateList, args['tau'], args['tau'], args=args)
-    mps.save_to_file(result, result_dir + '/adiab_psi.txt')
+# create Toric Code ground state |psi>
+psi = gnd_state.gnd_state_builder(args)
 
-elif mode == '1':
-    ttotal = args['ttotal']
-    tstep = args['tau']
-    stepNum = 5
-    # exp(-iHt) |psi_S>
-    for hx in np.linspace(0, p.args['hx'], num=stepNum, dtype=float):
-        args['hx'] = hx
-        gateList = gates.makeGateList(str_op, args)
-        result = mps.gateTEvol(result, gateList, args['tau'], args['tau'], args=args)
-    # S exp(-iHt) |psi_S>
-    result = mps.applyMPOtoMPS(str_op, result, args=args)
-    # exp(+iHt) S exp(-iHt) |psi_S>
-    args['J'] *= -1
-    for hx in reversed(np.linspace(0, p.args['hx'], num=stepNum, dtype=float)):
-        args['hx'] = -hx
-        gateList = gates.makeGateList(str_op, args)
-        result = mps.gateTEvol(result, gateList, args['tau'], args['tau'], args=args)
-    mps.save_to_file(result, result_dir + '/quasi_psi.txt')
+tstart = time.perf_counter()
 
-# no-field Heisenberg evolution of string operator
-elif mode == '2':
-    # exp(-iHt) |psi_S>
-    args['hx'] = 0.0
-    gateList = gates.makeGateList(str_op, args)
-    result = mps.gateTEvol(result, gateList, args['ttotal'], args['tau'], args=args)
-    # S exp(-iHt) |psi_S>
-    result = mps.applyMPOtoMPS(str_op, result, args=args)
-    # exp(+iHt) S exp(-iHt) |psi_S>
-    for g in gateList:
-        g.gate = np.conj(g.gate)
-    result = mps.gateTEvol(result, gateList, args['ttotal'], args['tau'], args=args)
-    mps.save_to_file(result, result_dir + '/no_field_psi.txt')
+# adiabatic evolution: exp(-iHt)|psi> (With field along z)
+stepNum = int(p.args['ttotal']/p.args['tau'])
+iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
+iterlist = np.delete(iterlist, 0)
+for hz in iterlist:
+    args['hz'] = hz
+    gateList = gates.makeGateList(psi, args)
+    psi = mps.gateTEvol(psi, gateList, args['ttotal']/stepNum, args['tau'], args=args)
+tend = time.perf_counter()
+with open(result_dir + '/parameters.txt', 'a+') as file:
+    print("Adiabatic evolution:", tend-tstart, "s\n")
+
+# quasi adiabatic evolution:
+# exp(-iH't) exp(-iHt) |psi>
+stepNum = 4
+iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
+iterlist = np.delete(iterlist, 0)
+for hz in iterlist:
+    args['hz'] = hz
+    gateList = gates.makeGateList(psi, args)
+    psi = mps.gateTEvol(psi, gateList, args['ttotal']/stepNum, args['tau'], args=args)
+tend = time.perf_counter()
+with open(result_dir + '/parameters.txt', 'a+') as file:
+    file.write("Quasi-adiabatic evolution:" + str(tend-tstart) + "s\n")
+
+# apply dressed string
+# <psi| exp(+iHt) exp(+iH't) S exp(-iH't) exp(-iHt) |psi>
+for string in bond_on_str:
+    str_op = []
+    for i in range(p.n):
+        str_op.append(np.zeros((1,2,2,1), dtype=complex))
+    # convert coordinate to unique number in 1D
+    bond_list = []
+    for bond in string[0:-1]:
+        bond_list.append(lat.lat(bond[0:2],bond[2],args['nx']))
+    for i in range(p.n):
+        if i in bond_list:
+            str_op[i][0,:,:,0] = p.sx
+        else:
+            str_op[i][0,:,:,0] = p.iden
+    result = mps.matElem(psi, str_op, psi)
+    with open(result_dir + '/result.txt', 'a+') as file:
+        file.write(str(string[-1]) + "\t" + str(result) + '\n')

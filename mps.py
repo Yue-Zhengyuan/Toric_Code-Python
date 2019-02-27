@@ -182,7 +182,6 @@ def applyMPOtoMPS(op, psi, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
         result.append(group)
     # restore MPO form by SVD and truncate virtual links
     # set orthogonality center at the middle of the MPO
-    result = position(result, 0, args=args)
     result = normalize(result, args=args)
     return result
 
@@ -339,8 +338,6 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
                     phi = position(phi, 0, args=args)
             
             elif len(sites) == 4:
-                # gauging and normalizing
-                phi = position(phi, sites[0], args=args)
                 # contraction
                 #
                 #       a      c      e      g
@@ -435,7 +432,7 @@ def sum(psi1, psi2, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
     result[i][0:virDim1[0],:,0:virDim1[1]] = psi1[i]
     result[i][virDim1[0]:virDim[0],:,0:virDim1[1]] = psi2[i]
 
-    # remove useless physical legs (will add later)        
+    # remove useless physical legs (will add later) 
 
     result = position(result, 0, args=args)
     return result
