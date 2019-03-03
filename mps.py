@@ -443,7 +443,7 @@ def printdata(psi):
     """
     for i in range(len(psi)):
         print('\nSite',i,', Shape',psi[i].shape)
-        cond = np.where(np.abs(psi[i]) > 1.0E-6)
+        cond = np.where(np.abs(psi[i]) > 1.0E-8)
         index = np.transpose(cond)
         elem = psi[i][cond]
         for j in range(len(index)):
@@ -469,7 +469,7 @@ def save_to_file(psi, filename):
                     f.write(str(psi[i].shape[leg]) + '\t')
                 else:
                     f.write(str(psi[i].shape[leg]) + '\n')
-            cond = np.where(np.abs(psi[i]) > 1.0E-10)
+            cond = np.where(np.abs(psi[i]) > 1.0E-8)
             index = np.transpose(cond)
             elem = psi[i][cond]
             for j in range(len(index)):

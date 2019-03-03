@@ -94,22 +94,9 @@ for hz in iterlist:
     psi = mps.gateTEvol(psi, gateList, args['ttotal']/stepNum, args['tau'], args=args)
 tend = time.perf_counter()
 with open(result_dir + '/parameters.txt', 'a+') as file:
-    print("Adiabatic evolution:", tend-tstart, "s\n")
+    file.write("Adiabatic evolution: " + str(tend-tstart) + " s\n")
 
-# quasi adiabatic evolution:
-# exp(-iH't) exp(-iHt) |psi>
-stepNum = 4
-iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
-iterlist = np.delete(iterlist, 0)
-for hz in iterlist:
-    args['hz'] = hz
-    gateList = gates.makeGateList(psi, args)
-    psi = mps.gateTEvol(psi, gateList, args['ttotal']/stepNum, args['tau'], args=args)
-tend = time.perf_counter()
-with open(result_dir + '/parameters.txt', 'a+') as file:
-    file.write("Quasi-adiabatic evolution:" + str(tend-tstart) + "s\n")
-
-# apply dressed string
+# apply undressed string
 # <psi| exp(+iHt) exp(+iH't) S exp(-iH't) exp(-iHt) |psi>
 for string in bond_on_str:
     str_op = []
@@ -125,5 +112,40 @@ for string in bond_on_str:
         else:
             str_op[i][0,:,:,0] = p.iden
     result = mps.matElem(psi, str_op, psi)
-    with open(result_dir + '/result.txt', 'a+') as file:
+    with open(result_dir + '/undressed_result.txt', 'a+') as file:
+        file.write(str(string[-1]) + "\t" + str(result) + '\n')
+
+# quasi adiabatic evolution:
+# exp(+iH't) exp(-iHt) |psi>
+stepNum = 2
+iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
+iterlist = np.delete(iterlist, 0)
+args['U'] *= -1
+args['g'] *= -1
+for hz in reversed(iterlist):
+    args['hz'] = -hz
+    gateList = gates.makeGateList(psi, args)
+    psi = mps.gateTEvol(psi, gateList, args['ttotal']/stepNum, args['tau'], args=args)
+tend = time.perf_counter()
+with open(result_dir + '/parameters.txt', 'a+') as file:
+    file.write("Quasi-adiabatic evolution: " + str(tend-tstart) + " s\n")
+    file.write("Using " + str(stepNum) + ' steps\n')
+
+# apply dressed string
+# <psi| exp(+iHt) exp(-iH't) S exp(+iH't) exp(-iHt) |psi>
+for string in bond_on_str:
+    str_op = []
+    for i in range(p.n):
+        str_op.append(np.zeros((1,2,2,1), dtype=complex))
+    # convert coordinate to unique number in 1D
+    bond_list = []
+    for bond in string[0:-1]:
+        bond_list.append(lat.lat(bond[0:2],bond[2],args['nx']))
+    for i in range(p.n):
+        if i in bond_list:
+            str_op[i][0,:,:,0] = p.sx
+        else:
+            str_op[i][0,:,:,0] = p.iden
+    result = mps.matElem(psi, str_op, psi)
+    with open(result_dir + '/dressed_result.txt', 'a+') as file:
         file.write(str(string[-1]) + "\t" + str(result) + '\n')

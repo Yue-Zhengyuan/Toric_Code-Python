@@ -179,6 +179,8 @@ def makeGateList(allsites, args):
                     gateList.append(swapGates[k])
                 swapGates.clear()
 
+    # vertex gates (ZZZZ) are not necessary since it commutes with 
+    # plaquette (XXXX), closed string (X...X) and field (Z)
     # make vertex gates
     if (args['U'] != 0):
         for i in np.arange(args['nx'] + 1, p.n - 3 * args['nx'] + 2, 2 * args['nx'] - 1, dtype=int):
