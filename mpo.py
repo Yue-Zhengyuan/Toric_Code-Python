@@ -54,7 +54,7 @@ def decombPhyLeg(psi, allPhyDim):
         op[i] = np.reshape(op[i], tuple(newshape))
     return op
 
-def position(op, pos, args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
+def position(op, pos, oldcenter=0, args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
     """
     set the orthogonality center of the MPO
     with respect to only part of the MPO
@@ -73,7 +73,7 @@ def position(op, pos, args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
     op2 = copy.copy(op)
     allPhyDim = getPhyDim(op2)
     op2 = combinePhyLeg(op2)
-    op2 = mps.position(op2, pos, args=args)
+    op2 = mps.position(op2, pos, oldcenter=oldcenter, args=args)
     op2 = decombPhyLeg(op2, allPhyDim)
     return op2
 
@@ -139,13 +139,13 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
     gateNum = len(gateList)
 
     op2 = position(op2, gateList[0].sites[0], args=args)
+    oldcenter = 0
     for tt in range(nt):
         for g in range(gateNum):
             gate2 = gateList[g].gate
             sites = gateList[g].sites
             gate = np.conj(gate2)
             if len(sites) == 1:
-                # op2 = position(op2, sites[0], 10, cutoff, bondm)
                 # contraction
                 #
                 #       a
@@ -166,12 +166,12 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
                 ten_AA = np.einsum('iaek,ef->iafk',ten_AA,gate2)
                 op2[sites[0]] = ten_AA
                 if g < gateNum - 1:
-                    op2 = position(op2, gateList[g+1].sites[0], args=args)
+                    op2 = position(op2, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
+                    oldcenter = gateList[g+1].sites[0]
                 else:
-                    op2 = position(op2, 0, args=args)
-            # swap gate
+                    op2 = position(op2, 0, oldcenter=oldcenter, args=args)
+                    oldcenter = 0
             elif len(sites) == 2:
-                # op2 = position(op2, sites[0], 10, cutoff, bondm)
                 # contraction
                 #
                 #       a      c
@@ -196,18 +196,20 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
                         result = svd_nsite(2, ten_AA, 'Fromleft', args=args)
                         for i in range(2):
                             op2[sites[i]] = result[i]
-                        op2 = position(op2, gateList[g+1].sites[0], args=args)
+                        op2 = position(op2, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
+                        oldcenter = gateList[g+1].sites[0]
                     else:
                         result = svd_nsite(2, ten_AA, args=args, dir='Fromright')
                         for i in range(2):
                             op2[sites[i]] = result[i]
-                        op2 = position(op2, gateList[g+1].sites[-1], args=args)
+                        op2 = position(op2, gateList[g+1].sites[-1], oldcenter=oldcenter, args=args)
+                        oldcenter = gateList[g+1].sites[-1]
                 else:
                     result = svd_nsite(2, ten_AA, 'Fromright', args=args)
                     for i in range(2):
                         op2[sites[i]] = result[i]
-                    op2 = position(op2, 0, args=args)
-            # time evolution gate
+                    op2 = position(op2, 0, oldcenter=oldcenter, args=args)
+                    oldcenter = 0
             elif len(sites) == 4:
                 # contraction
                 #
@@ -233,21 +235,24 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
                         result = svd_nsite(4, ten_AAAA, 'Fromleft', args=args)
                         for i in range(4):
                             op2[sites[i]] = result[i]
-                        op2 = position(op2, gateList[g+1].sites[0], args=args)
+                        op2 = position(op2, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
+                        oldcenter = gateList[g+1].sites[0]
                     else:
                         result = svd_nsite(4, ten_AAAA, 'Fromright',args=args)
                         for i in range(4):
                             op2[sites[i]] = result[i]
-                        op2 = position(op2, gateList[g+1].sites[-1], args=args)
+                        op2 = position(op2, gateList[g+1].sites[-1], oldcenter=oldcenter, args=args)
+                        oldcenter = gateList[g+1].sites[-1]
                 else:
                     result = svd_nsite(4, ten_AAAA, 'Fromright', args=args)
                     for i in range(4):
                         op2[sites[i]] = result[i]
-                    op2 = position(op2, 0, args=args)
+                    op2 = position(op2, 0, oldcenter=oldcenter, args=args)
+                    oldcenter = 0
             # error handling
             else:
                 sys.exit('Wrong number of sites of gate')
-    
+    # return not normalized MPO op2
     return op2
 
 def sum(op1, op2, args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):

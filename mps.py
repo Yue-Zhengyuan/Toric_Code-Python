@@ -51,15 +51,38 @@ def svd_truncate(u, s, v, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
         s /= average
     return u, s, v, retain_dim
 
-def position(psi, pos, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
+def position(psi, pos, oldcenter=-1, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
     """
     set the orthogonality center of the MPS |psi> to pos'th site
+
+    Parameters
+    ---------------
+    old center : int (default = -1)
+        when old center < 0,            do right canonization
+        when old center > len(psi)-1,   do left canonization
     """
     phi = copy.copy(psi)
     siteNum = len(phi)
+    if oldcenter < 0:               # initialize center to 0
+        left = []
+        right = np.arange(siteNum-1, 0, -1, dtype=int)
+    elif oldcenter >= siteNum:
+        sys.exit("Old gauge center out of range")
+    else:                           # set center to pos
+        if pos == oldcenter: # no need to do canonization at all
+            left = []
+            right = []
+        elif pos > oldcenter:
+            left = np.arange(oldcenter, pos, 1, dtype=int)
+            right = [] # no need to do right canonization
+        elif pos < oldcenter:
+            left = []
+            right = np.arange(oldcenter, pos, -1, dtype=int)
+        else:
+            sys.exit("Gauge center out of range")
     # left canonization (0 to pos - 1)
-    # if pos == 0, then left canonization will not be performed
-    for i in range(pos):
+    # for i in range(pos):
+    for i in left:
         virDim = [phi[i].shape[0], phi[i].shape[-1]]
         phyDim = phi[i].shape[1]
         # i,j: virtual leg; a: physical leg
@@ -75,8 +98,8 @@ def position(psi, pos, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
         phi[i+1] = np.einsum('si,iaj->saj', v, phi[i+1])
         # phi[i], phi[i+1] = signCorrect(phi[i], phi[i+1])
     # right canonization (siteNum-1 to pos+1)
-    # if pos == siteNum-1, then right canonization will not be performed
-    for i in np.arange(siteNum-1, pos, -1, dtype=int):
+    # for i in np.arange(siteNum-1, pos, -1, dtype=int):
+    for i in right:
         virDim = [phi[i].shape[0], phi[i].shape[-1]]
         phyDim = phi[i].shape[1]
         # i,j: virtual leg; a: physical leg
@@ -284,6 +307,7 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
     gateNum = len(gateList)
 
     phi = position(phi, gateList[0].sites[0], args=args)
+    oldcenter = 0
     for tt in range(nt):
         for g in range(gateNum):
             gate = gateList[g].gate
@@ -303,9 +327,11 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
                 ten_AA = np.einsum('ibk,ab->iak',phi[sites[0]],gate)
                 phi[sites[0]] = ten_AA
                 if g < gateNum - 1:
-                    phi = position(phi, gateList[g+1].sites[0], args=args)
+                    phi = position(phi, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
+                    oldcenter = gateList[g+1].sites[0]
                 else:
-                    phi = position(phi, 0, args=args)
+                    phi = position(phi, 0, oldcenter=oldcenter, args=args)
+                    oldcenter = 0
             elif len(sites) == 2:
                 # contraction
                 #
@@ -325,18 +351,20 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
                         result = svd_nsite(2, ten_AA, 'Fromleft', args=args)
                         for i in range(2):
                             phi[sites[i]] = result[i]
-                        phi = position(phi, gateList[g+1].sites[0], args=args)
+                        phi = position(phi, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
+                        oldcenter = gateList[g+1].sites[0]
                     else:
                         result = svd_nsite(2, ten_AA, args=args, dir='Fromright')
                         for i in range(2):
                             phi[sites[i]] = result[i]
-                        phi = position(phi, gateList[g+1].sites[-1], args=args)
+                        phi = position(phi, gateList[g+1].sites[-1], oldcenter=oldcenter, args=args)
+                        oldcenter = gateList[g+1].sites[-1]
                 else:
                     result = svd_nsite(2, ten_AA, 'Fromright', args=args)
                     for i in range(2):
                         phi[sites[i]] = result[i]
-                    phi = position(phi, 0, args=args)
-            
+                    phi = position(phi, 0, oldcenter=oldcenter, args=args)
+                    oldcenter = 0
             elif len(sites) == 4:
                 # contraction
                 #
@@ -357,18 +385,20 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
                         result = svd_nsite(4, ten_AAAA, 'Fromleft', args=args)
                         for i in range(4):
                             phi[sites[i]] = result[i]
-                        phi = position(phi, gateList[g+1].sites[0], args=args)
+                        phi = position(phi, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
+                        oldcenter = gateList[g+1].sites[0]
                     else:
                         result = svd_nsite(4, ten_AAAA, 'Fromright',args=args)
                         for i in range(4):
                             phi[sites[i]] = result[i]
-                        phi = position(phi, gateList[g+1].sites[-1], args=args)
+                        phi = position(phi, gateList[g+1].sites[-1], oldcenter=oldcenter, args=args)
+                        oldcenter = gateList[g+1].sites[-1]
                 else:
                     result = svd_nsite(4, ten_AAAA, 'Fromright', args=args)
                     for i in range(4):
                         phi[sites[i]] = result[i]
-                    phi = position(phi, 0, args=args)
-                
+                    phi = position(phi, 0, oldcenter=oldcenter, args=args)
+                    oldcenter = 0
             # error handling
             else:
                 print('Wrong number of sites')

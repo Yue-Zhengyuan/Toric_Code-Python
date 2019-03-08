@@ -75,3 +75,32 @@ def inv_lat(num, table):
     """
     index = table[1].index(num)
     return table[0][index]
+
+def selectRegion(string, width, size):
+    """
+    select a region within width from the given string
+
+    Parameters
+    -----------------
+    string : list of bonds
+        bonds on the string operator
+    width : int
+        width of the spreading from string operator
+    size : int
+        size of the lattice system
+    """
+    region = []
+    for bond in string:
+        if bond[2] == 'd':
+            lowlimit = max(0, bond[0]-width)
+            uplimit = min(size-1, bond[0]+width)
+            for i in np.arange(lowlimit, uplimit, 1, dtype=int):
+                region.append(lat((i, bond[1]), 'd', size))
+        if bond[2] == 'r':
+            lowlimit = max(0, bond[1]-width)
+            uplimit = min(size-1, bond[1]+width)
+            for i in np.arange(lowlimit, uplimit, 1, dtype=int):
+                region.append(lat((i, bond[1]), 'r', size))
+    region = np.asarray(region, dtype=int)
+    region = np.unique(region)
+    return region
