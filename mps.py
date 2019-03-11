@@ -63,9 +63,9 @@ def position(psi, pos, oldcenter=-1, args={'cutoff':1.0E-5, 'bondm':200, 'scale'
     """
     phi = copy.copy(psi)
     siteNum = len(phi)
-    if oldcenter < 0:               # initialize center to 0
-        left = []
-        right = np.arange(siteNum-1, 0, -1, dtype=int)
+    if oldcenter < 0:               # initialize center to pos
+        left = np.arange(0, pos, 1, dtype=int)
+        right = np.arange(siteNum-1, pos, -1, dtype=int)
     elif oldcenter >= siteNum:
         sys.exit("Old gauge center out of range")
     else:                           # set center to pos
@@ -351,18 +351,21 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
                         result = svd_nsite(2, ten_AA, 'Fromleft', args=args)
                         for i in range(2):
                             phi[sites[i]] = result[i]
+                        oldcenter = sites[-1]
                         phi = position(phi, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
                         oldcenter = gateList[g+1].sites[0]
                     else:
                         result = svd_nsite(2, ten_AA, args=args, dir='Fromright')
                         for i in range(2):
                             phi[sites[i]] = result[i]
+                        oldcenter = sites[0]
                         phi = position(phi, gateList[g+1].sites[-1], oldcenter=oldcenter, args=args)
                         oldcenter = gateList[g+1].sites[-1]
                 else:
                     result = svd_nsite(2, ten_AA, 'Fromright', args=args)
                     for i in range(2):
                         phi[sites[i]] = result[i]
+                    oldcenter = sites[0]
                     phi = position(phi, 0, oldcenter=oldcenter, args=args)
                     oldcenter = 0
             elif len(sites) == 4:
@@ -385,18 +388,21 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
                         result = svd_nsite(4, ten_AAAA, 'Fromleft', args=args)
                         for i in range(4):
                             phi[sites[i]] = result[i]
+                        oldcenter = sites[-1]
                         phi = position(phi, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
                         oldcenter = gateList[g+1].sites[0]
                     else:
                         result = svd_nsite(4, ten_AAAA, 'Fromright',args=args)
                         for i in range(4):
                             phi[sites[i]] = result[i]
+                        oldcenter = sites[0]
                         phi = position(phi, gateList[g+1].sites[-1], oldcenter=oldcenter, args=args)
                         oldcenter = gateList[g+1].sites[-1]
                 else:
                     result = svd_nsite(4, ten_AAAA, 'Fromright', args=args)
                     for i in range(4):
                         phi[sites[i]] = result[i]
+                    oldcenter = sites[0]
                     phi = position(phi, 0, oldcenter=oldcenter, args=args)
                     oldcenter = 0
             # error handling
