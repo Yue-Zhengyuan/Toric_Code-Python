@@ -150,6 +150,8 @@ def svd_nsite(n, tensor, dir, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}
     phyDim = list(tensor.shape[1:-1])
     result = []
     mat = copy.copy(tensor)
+    # rounding
+    mat = np.around(mat, decimals=10)
     if dir == 'Fromleft':
         old_retain_dim = virDim[0]
         for i in np.arange(0, n - 1, 1, dtype=int):
