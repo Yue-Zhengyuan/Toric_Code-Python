@@ -22,7 +22,7 @@ def lat(site, dir, size):
     dir : 'r'/'d'
         direction of the bond (right or downward)
     size : int
-        size of the square lattice
+        linear size of the square lattice
     """
     step = 2*size - 1
     if dir == 'r':
@@ -47,7 +47,7 @@ def lat_table(size):
     Parameters
     --------------
     size : int
-        size of the square lattice
+        linear size of the square lattice
     """
     table = [[],[]]
     for j in range(size):
@@ -87,20 +87,36 @@ def selectRegion(string, width, size):
     width : int
         width of the spreading from string operator
     size : int
-        size of the lattice system
+        linear size of the lattice system
     """
     region = []
     for bond in string:
-        if bond[2] == 'd':
-            lowlimit = max(0, bond[0]-width)
-            uplimit = min(size-1, bond[0]+width)
-            for i in np.arange(lowlimit, uplimit, 1, dtype=int):
-                region.append(lat((i, bond[1]), 'd', size))
-        if bond[2] == 'r':
-            lowlimit = max(0, bond[1]-width)
-            uplimit = min(size-1, bond[1]+width)
-            for i in np.arange(lowlimit, uplimit, 1, dtype=int):
-                region.append(lat((i, bond[1]), 'r', size))
+        x, y, dir = bond[0], bond[1], bond[2]
+        if dir == 'd':
+            # add the plaquette to the left/right of this bond
+            left = [(x-1,y,'r'),(x-1,y,'d'),(x,y,'d'),(x-1,y+1,'r')]
+            right = [(x,y,'d'),(x,y,'r'),(x+1,y,'d'),(x,y+1,'r')]
+            # check whether this is a boundary bond
+            if x == 0:              # on the left boundary; add right plaquette only
+                left = []
+            elif x == size  - 1:    # on the right boundary; add left plaquette only
+                right = []                
+            for newbond in left: 
+                region.append(lat(newbond[0:2], newbond[2], size))
+            for newbond in right:
+                region.append(lat(newbond[0:2], newbond[2], size))
+        if dir == 'r':
+            # add the plaquette above/below this bond
+            above = [(x,y-1,'r'),(x,y-1,'d'),(x+1,y-1,'d'),(x,y,'r')]
+            below = [(x,y,'r'),(x,y,'d'),(x+1,y,'d'),(x,y+1,'r')]
+            if y == 0:          # on the upper boundary; add plaquette below only
+                above = []
+            if y == size - 1:    # on the lower boundary; add plaquette above only
+                below = []                
+            for newbond in above: 
+                region.append(lat(newbond[0:2], newbond[2], size))
+            for newbond in below:
+                region.append(lat(newbond[0:2], newbond[2], size))
     region = np.asarray(region, dtype=int)
     region = np.unique(region)
     return region

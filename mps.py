@@ -95,7 +95,7 @@ def position(psi, pos, oldcenter=-1, args={'cutoff':1.0E-5, 'bondm':200, 'scale'
         # update mps[i+1]
         mat_s = np.diag(s)
         v = np.dot(mat_s, v)
-        phi[i+1] = np.einsum('si,iaj->saj', v, phi[i+1])
+        phi[i+1] = np.einsum('si,iaj->saj', v, phi[i+1], optimize=True)
         # phi[i], phi[i+1] = signCorrect(phi[i], phi[i+1])
     # right canonization (siteNum-1 to pos+1)
     # for i in np.arange(siteNum-1, pos, -1, dtype=int):
@@ -112,7 +112,7 @@ def position(psi, pos, oldcenter=-1, args={'cutoff':1.0E-5, 'bondm':200, 'scale'
         # update mps[i-1]
         mat_s = np.diag(s)
         u = np.dot(u, mat_s)
-        phi[i-1] = np.einsum('iaj,js->ias', phi[i-1], u)
+        phi[i-1] = np.einsum('iaj,js->ias', phi[i-1], u, optimize=True)
         # phi[i-1], phi[i] = signCorrect(phi[i-1], phi[i])
     return phi
 
@@ -151,7 +151,7 @@ def svd_nsite(n, tensor, dir, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}
     result = []
     mat = copy.copy(tensor)
     # rounding
-    mat = np.around(mat, decimals=10)
+    mat = np.around(mat, decimals=8)
     if dir == 'Fromleft':
         old_retain_dim = virDim[0]
         for i in np.arange(0, n - 1, 1, dtype=int):
@@ -201,7 +201,7 @@ def applyMPOtoMPS(op, psi, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
     # contraction
     result = []
     for site in range(siteNum):
-        group = np.einsum('iabj,kbl->ikajl',op[site],psi[site])
+        group = np.einsum('iabj,kbl->ikajl',op[site],psi[site], optimize=True)
         shape = group.shape
         group = np.reshape(group, (shape[0]*shape[1], shape[2], shape[3]*shape[4]))
         result.append(group)
@@ -234,7 +234,7 @@ def overlap(psi1, psi2):
     # 
     result = []
     for site in range(siteNum):
-        group = np.einsum('iaj,kal->ikjl',np.conj(psi1[site]),psi2[site])
+        group = np.einsum('iaj,kal->ikjl',np.conj(psi1[site]),psi2[site], optimize=True)
         result.append(group)
     # restore MPO form by SVD and truncate virtual links
     # set orthogonality center
@@ -275,7 +275,7 @@ def matElem(psi1, op, psi2):
     result = []
     for site in range(siteNum):
         group = np.einsum('iaj,kabl,mbn->ikmjln', 
-        np.conj(psi1[site]), op[site], psi2[site])
+        np.conj(psi1[site]), op[site], psi2[site], optimize=True)
         result.append(group)
     # full contraction
     elem = result[0]
@@ -326,7 +326,7 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
                 #  i --| |-- k
                 #      --- 
                 #
-                ten_AA = np.einsum('ibk,ab->iak',phi[sites[0]],gate)
+                ten_AA = np.einsum('ibk,ab->iak',phi[sites[0]],gate, optimize=True)
                 phi[sites[0]] = ten_AA
                 if g < gateNum - 1:
                     phi = position(phi, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
@@ -346,7 +346,7 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
                 #  i --| |-k--| |--j
                 #      ---    ---
                 #
-                ten_AA = np.einsum('ibk,kdj,abcd->iacj',phi[sites[0]],phi[sites[1]],gate)
+                ten_AA = np.einsum('ibk,kdj,abcd->iacj',phi[sites[0]],phi[sites[1]],gate, optimize=True)
                 # do svd to restore 2 sites
                 if g < gateNum - 1:
                     if gateList[g+1].sites[0] >= gateList[g].sites[-1]:
@@ -382,8 +382,8 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
                 #  i --| |-j--| |--k-| |-l--| |-- m
                 #      ---    ---    ---    ---
                 #
-                ten_AAAA = np.einsum('ibj,jdk,kfl,lhm->ibdfhm',phi[sites[0]],phi[sites[1]],phi[sites[2]],phi[sites[3]])
-                ten_AAAA = np.einsum('ibdfhm,abcdefgh->iacegm',ten_AAAA,gate)
+                ten_AAAA = np.einsum('ibj,jdk,kfl,lhm->ibdfhm',phi[sites[0]],phi[sites[1]],phi[sites[2]],phi[sites[3]], optimize=True)
+                ten_AAAA = np.einsum('ibdfhm,abcdefgh->iacegm',ten_AAAA,gate, optimize=True)
                 # do svd to restore 4 sites
                 if g < gateNum:
                     if gateList[g+1].sites[0] >= gateList[g].sites[-1]:

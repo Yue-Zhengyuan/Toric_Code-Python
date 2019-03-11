@@ -125,7 +125,7 @@ def cleanGates(gateList):
         else:
             j += 1
 
-def makeGateList(allsites, args):
+def makeGateList(allsites, args, region=range(p.args['n'])):
     """
     Create time-evolution/swap gate list
 
@@ -135,6 +135,8 @@ def makeGateList(allsites, args):
         MPS/MPO to be acted on
     args : dictionary
         parameter dictionary
+    region : iterable of integers (default range(p.args['n']))
+        the region from which gates are constructed
     """
     gateList = []
     siteNum = len(allsites)
@@ -150,6 +152,13 @@ def makeGateList(allsites, args):
                 r = l + 1
                 d = l + args['nx']
                 sites = [u - 1, l - 1, r - 1, d - 1]
+                inRegion = True
+                for site in sites:
+                    if site in region:
+                        pass
+                    else:
+                        inRegion = False
+                        continue
                 sites.sort()
                 # create swap gates
                 for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):
@@ -190,6 +199,13 @@ def makeGateList(allsites, args):
                 r = l + 1
                 d = l + args['nx']
                 sites = [u - 1, l - 1, r - 1, d - 1]
+                inRegion = True
+                for site in sites:
+                    if site in region:
+                        pass
+                    else:
+                        inRegion = False
+                        continue
                 sites.sort()
                 # create swap gates
                 for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):

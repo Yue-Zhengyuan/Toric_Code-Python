@@ -162,8 +162,8 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
                 #      -|-
                 #       f
                 #
-                ten_AA = np.einsum('ibek,ab->iaek',op2[sites[0]],gate)
-                ten_AA = np.einsum('iaek,ef->iafk',ten_AA,gate2)
+                ten_AA = np.einsum('ibek,ab->iaek',op2[sites[0]],gate, optimize=True)
+                ten_AA = np.einsum('iaek,ef->iafk',ten_AA,gate2, optimize=True)
                 op2[sites[0]] = ten_AA
                 if g < gateNum - 1:
                     op2 = position(op2, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
@@ -188,8 +188,8 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
                 #      -|------|-
                 #       f      h
                 #
-                ten_AA = np.einsum('ibek,kdgj,abcd->iaecgj',op2[sites[0]],op2[sites[1]],gate)
-                ten_AA = np.einsum('iaecgj,efgh->iafchj',ten_AA,gate2)
+                ten_AA = np.einsum('ibek,kdgj,abcd->iaecgj',op2[sites[0]],op2[sites[1]],gate, optimize=True)
+                ten_AA = np.einsum('iaecgj,efgh->iafchj',ten_AA,gate2, optimize=True)
                 # do svd to restore 2 sites
                 if g < gateNum - 1:
                     if gateList[g+1].sites[0] >= gateList[g].sites[-1]:
@@ -230,9 +230,9 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
                 #      -|------|------|------|-
                 #       t      v      x      z
                 #
-                ten_AAAA = np.einsum('ibsj,jduk,kfwl,lhym->ibsdufwhym',op2[sites[0]],op2[sites[1]],op2[sites[2]],op2[sites[3]])
-                ten_AAAA = np.einsum('abcdefgh,ibsdufwhym->iascuewgym',gate,ten_AAAA)
-                ten_AAAA = np.einsum('iascuewgym,stuvwxyz->iatcvexgzm',ten_AAAA,gate2)
+                ten_AAAA = np.einsum('ibsj,jduk,kfwl,lhym->ibsdufwhym',op2[sites[0]],op2[sites[1]],op2[sites[2]],op2[sites[3]], optimize=True)
+                ten_AAAA = np.einsum('abcdefgh,ibsdufwhym->iascuewgym',gate,ten_AAAA, optimize=True)
+                ten_AAAA = np.einsum('iascuewgym,stuvwxyz->iatcvexgzm',ten_AAAA,gate2, optimize=True)
                 if g < gateNum:
                     if gateList[g+1].sites[0] >= gateList[g].sites[-1]:
                         result = svd_nsite(4, ten_AAAA, 'Fromleft', args=args)
