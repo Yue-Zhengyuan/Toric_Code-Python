@@ -1,7 +1,7 @@
 # 
-#   main_mps.py
+#   main_mpo.py
 #   Toric_Code-Python
-#   apply the gates and MPO to MPS
+#   apply the gates to MPO
 #
 #   created on Feb 18, 2019 by Yue Zhengyuan
 #
@@ -11,6 +11,7 @@ import gates
 import para_dict as p
 import lattice as lat
 import mps
+import mpo
 import gnd_state
 import sys
 import copy
@@ -25,12 +26,18 @@ args = copy.copy(p.args)
 args['hx'] = 0.0
 args['hy'] = 0.0
 args['hz'] = 0.0
+# turn off vertex operator ZZZZ
+args['U'] = 0
+args['scale'] = True
+
+# create result directory
+result_dir = sys.argv[1]
 
 # create closed string operator MPO enclosing different area(S)
 # read string from file
 with open('list.txt', 'r') as f:
     line = f.readlines()
-string_no = 0
+string_no = int(sys.argv[2])
 bond_on_str = ast.literal_eval(line[string_no])[0:-1]
 str_area = ast.literal_eval(line[string_no])[-1]
 # create string operator
@@ -47,46 +54,24 @@ for i in range(p.n):
     else:
         str_op[i][0,:,:,0] = p.iden
 
-# create result directory
-# get system time
-nowtime = datetime.datetime.now()
-result_dir = '_'.join(['result_mps', str(nowtime.year), str(nowtime.month), 
-str(nowtime.day), str(nowtime.hour), str(nowtime.minute)])
-os.makedirs(result_dir, exist_ok=True)
-
-# save parameters
-with open(result_dir + '/parameters.txt', 'w+') as file:
-    file.write(json.dumps(p.args))  # use json.loads to do the reverse
-    file.write('\n\nUsing String Operators:')
-    file.write('\n\n')
-    file.write(str(bond_on_str))    # bonds
-
 # create Toric Code ground state |psi>
 psi = gnd_state.gnd_state_builder(args)
 
 tstart = time.perf_counter()
 
-# adiabatic evolution: exp(-iHt)|psi> (With field along z)
-stepNum = int(p.args['ttotal']/p.args['tau'])
+# quasi-adiabatic evolution: 
+# exp(-iH't) S exp(+iH't)
+stepNum = 2
 iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 for hz in iterlist:
     args['hz'] = hz
     gateList = gates.makeGateList(psi, args)
-    psi = mps.gateTEvol(psi, gateList, args['ttotal']/stepNum, args['tau'], args=args)
-tend = time.perf_counter()
-with open(result_dir + '/parameters.txt', 'a+') as file:
-    file.write("\nAdiabatic evolution: " + str(tend-tstart) + " s\n")
+    str_op = mpo.gateTEvol(str_op, gateList, args['ttotal']/stepNum, args['tau'], args=args)
 
-# apply undressed string
-# <psi| exp(+iHt) S exp(-iHt) |psi>
-result = mps.matElem(psi, str_op, psi)
-with open(result_dir + '/undressed_result.txt', 'a+') as file:
-    file.write(str(str_area) + "\t" + str(result) + '\n')
-
-# quasi adiabatic evolution:
-# exp(+iH't) exp(-iHt) |psi>
-stepNum = 2
+# adiabatic evolution:
+# exp(+iHt) exp(-iH't) S exp(+iH't) exp(-iHt)
+stepNum = int(p.args['ttotal']/p.args['tau'])
 iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 args['U'] *= -1
@@ -94,14 +79,18 @@ args['g'] *= -1
 for hz in reversed(iterlist):
     args['hz'] = -hz
     gateList = gates.makeGateList(psi, args)
-    psi = mps.gateTEvol(psi, gateList, args['ttotal']/stepNum, args['tau'], args=args)
+    str_op = mpo.gateTEvol(str_op, gateList, args['ttotal']/stepNum, args['tau'], args=args)
 tend = time.perf_counter()
 with open(result_dir + '/parameters.txt', 'a+') as file:
-    file.write("Quasi-adiabatic evolution: " + str(tend-tstart) + " s\n")
+    file.write("\nArea = " + str(str_area) + '\t')
+    file.write("Quasi-Adiabatic evolution: " + str(tend-tstart) + " s\n")
     file.write("Using " + str(stepNum) + ' steps\n')
 
 # apply dressed string
 # <psi| exp(+iHt) exp(-iH't) S exp(+iH't) exp(-iHt) |psi>
-result = mps.matElem(psi, str_op, psi)
+args['scale'] = False
+result = mps.applyMPOtoMPS(str_op, psi, args=args)
+result = mps.normalize(result, args=args)
+result = mps.overlap(psi, result)
 with open(result_dir + '/dressed_result.txt', 'a+') as file:
     file.write(str(str_area) + "\t" + str(result) + '\n')
