@@ -120,3 +120,23 @@ def selectRegion(string, width, size):
     region = np.asarray(region, dtype=int)
     region = np.unique(region)
     return region
+
+def convertToStrOp(plist):
+    """
+    Convert the plaquettes enclosed by string to the string
+    Each plaquette is labeled by the coordinate of its upper-left corner
+    """
+    area = len(plist)
+    plist = [tuple(plq) for plq in plist]
+    bond_on_str = []
+    for plq in plist:
+        x, y = plq[0], plq[1]
+        if not((x, y-1) in plist):      # upper plaquette
+            bond_on_str.append((x,y,'r'))
+        if not((x, y+1) in plist):      # lower plaquette
+            bond_on_str.append((x,y+1,'r'))
+        if not((x-1, y) in plist):      # left plaquette
+            bond_on_str.append((x,y,'d'))
+        if not((x+1, y) in plist):      # right plaquette
+            bond_on_str.append((x+1,y,'d'))
+    return bond_on_str, area

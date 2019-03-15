@@ -38,8 +38,7 @@ result_dir = sys.argv[1]
 with open('list.txt', 'r') as f:
     line = f.readlines()
 string_no = int(sys.argv[2])
-bond_on_str = ast.literal_eval(line[string_no])[0:-1]
-str_area = ast.literal_eval(line[string_no])[-1]
+bond_on_str, str_area = lat.convertToStrOp(ast.literal_eval(line[string_no]))
 # create string operator
 str_op = []
 for i in range(args['n']):
@@ -85,6 +84,13 @@ with open(result_dir + '/parameters.txt', 'a+') as file:
     file.write("\nArea = " + str(str_area) + '\t')
     file.write("Quasi-Adiabatic evolution: " + str(tend-tstart) + " s\n")
     file.write("Using " + str(stepNum) + ' steps\n')
+
+strOpFilename = result_dir + '/outfile/string' + str(string_no) + '.txt'
+mpo.save_to_file(str_op, strOpFilename)
+with open(strOpFilename, 'a+') as file:
+    file.write("\nSites on the string: \n")
+    file.write(str(bond_on_str) + '\n')
+    file.write(str(bond_list) + '\n')
 
 # apply dressed string
 # <psi| exp(+iHt) exp(-iH't) S exp(+iH't) exp(-iHt) |psi>

@@ -1,7 +1,7 @@
 # 
 #   gnd_state.py
 #   Toric_Code-Python
-#   apply the gates and MPO to MPS
+#   generate ground state of Toric Code system
 #
 #   created on Feb 18, 2019 by Yue Zhengyuan
 #
@@ -51,14 +51,15 @@ def gnd_state_builder(args):
     # ---------------------------------------------------
 
     # construct MPS from PEPS
+    n = args['nx']
     result = []
     i = 0
-    for row in range(2 * args['ny'] - 1):
-        if (row == 0 or row == 2 * args['ny'] - 2):
+    for row in range(2 * n - 1):
+        if (row == 0):
             result.append(corner)
-            for j in np.arange(1, args['nx'], 1, dtype=int):
+            for j in np.arange(1, n, 1, dtype=int):
                 result[i] = np.tensordot(result[i], spin, ([-1],[0]))
-                if j == args['nx'] - 1:
+                if j == n - 1:
                     result[i] = np.tensordot(result[i], corner, ([-1],[0]))
                 else:
                     result[i] = np.tensordot(result[i], edge, ([-1],[0]))
@@ -70,23 +71,39 @@ def gnd_state_builder(args):
                 result[i] = np.moveaxis(result[i], axis, dest)
                 dest += 1
             # reshape
-            if row == 0:
-                newshape = [1]
-                for count in range(args['nx']-1): 
-                    newshape.append(2)
-                newshape.append(2**args['nx'])
-            elif row == 2 * args['ny'] - 2:
-                newshape = [2**args['nx']]
-                for count in range(args['nx']-1): 
-                    newshape.append(2)
-                newshape.append(1)
+            newshape = [1]
+            for count in range(n-1): 
+                newshape.append(2)
+            newshape.append(2**n)
+            result[i] = np.reshape(result[i], newshape)
+
+        elif (row == 2 * n - 2):
+            result.append(corner)
+            for j in np.arange(1, n, 1, dtype=int):
+                result[i] = np.tensordot(result[i], spin, ([-1],[0]))
+                if j == n - 1:
+                    result[i] = np.tensordot(result[i], corner, ([-1],[0]))
+                else:
+                    result[i] = np.tensordot(result[i], edge, ([-1],[0]))
+            # original axes order:  vir phy vir phy ... vir phy vir
+            # new axes order:       vir ... vir (phy ... phy)
+            # move vir legs to front
+            dest = 0
+            for axis in np.arange(0, len(result[i].shape), 2, dtype=int):
+                result[i] = np.moveaxis(result[i], axis, dest)
+                dest += 1
+            # reshape
+            newshape = [2**n]
+            for count in range(n-1): 
+                newshape.append(2)
+            newshape.append(1)
             result[i] = np.reshape(result[i], newshape)
 
         elif row % 2 == 0:
             result.append(edge)
-            for j in np.arange(1, args['nx'], 1, dtype=int):
+            for j in np.arange(1, n, 1, dtype=int):
                 result[i] = np.tensordot(result[i], spin, ([-1],[0]))
-                if j == args['nx'] - 1:
+                if j == n - 1:
                     result[i] = np.tensordot(result[i], edge, ([-1],[0]))
                 else:
                     result[i] = np.tensordot(result[i], vertex, ([-1],[0]))
@@ -99,20 +116,20 @@ def gnd_state_builder(args):
                 dest += 1
             # current axes order: vir0 ... vir0 / vir1 phy ... vir1 phy vir1
             # move phy legs to center
-            dest = args['nx']
-            for axis in np.arange(args['nx']+1, len(result[i].shape), 2, dtype=int):
+            dest = n
+            for axis in np.arange(n+1, len(result[i].shape), 2, dtype=int):
                 result[i] = np.moveaxis(result[i], axis, dest)
                 dest += 1
             # reshape
-            newshape = [2**args['nx']]
-            for count in range(args['nx']-1): 
+            newshape = [2**n]
+            for count in range(n-1): 
                 newshape.append(2)
-            newshape.append(2**args['nx'])
+            newshape.append(2**n)
             result[i] = np.reshape(result[i], newshape)
 
         elif row % 2 == 1:
             result.append(spin)
-            for j in np.arange(1, args['nx'], 1, dtype=int):
+            for j in np.arange(1, n, 1, dtype=int):
                 result[i] = np.tensordot(result[i], spin, axes=0)
             # rearrage axes and reshape
             # original axes order:  vir0 phy vir1 ... vir0 phy vir1
@@ -122,17 +139,17 @@ def gnd_state_builder(args):
             for axis in np.arange(0, len(result[i].shape), 3, dtype=int):
                 result[i] = np.moveaxis(result[i], axis, dest)
                 dest += 1
-            # current axes order: vir0 ... vir0 / vir1 phy ... vir1 phy
+            # current axes order: vir0 ... vir0 / phy vir1 ... phy vir1
             # move phy legs to center
-            dest = args['nx']
-            for axis in np.arange(args['nx']+1, len(result[i].shape), 2, dtype=int):
+            dest = n
+            for axis in np.arange(n, len(result[i].shape), 2, dtype=int):
                 result[i] = np.moveaxis(result[i], axis, dest)
                 dest += 1
             # reshape
-            newshape = [2**args['nx']]
-            for count in range(args['nx']): 
+            newshape = [2**n]
+            for count in range(n): 
                 newshape.append(2)
-            newshape.append(2**args['nx'])
+            newshape.append(2**n)
             result[i] = np.reshape(result[i], newshape)
         i += 1
 
@@ -140,9 +157,9 @@ def gnd_state_builder(args):
     psi = []
     args['scale'] = True
     for i in range(len(result)):
-        n = len(result[i].shape[1:-1])
-        decomp = mps.svd_nsite(n, result[i], 'Fromleft', args=args)
-        for site in range(n):
+        m = len(result[i].shape[1:-1])
+        decomp = mps.svd_nsite(m, result[i], 'Fromleft', args=args)
+        for site in range(m):
             psi.append(decomp[site])
     args['scale'] = False
     psi = mps.normalize(psi, args=args)

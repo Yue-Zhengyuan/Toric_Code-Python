@@ -8,6 +8,8 @@ benchmark*/
 outfile*
 test*.py
 test.py
+test*/
+figures/
 
 ### Backups ###
 old_versions/
@@ -100,6 +102,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb
 
 # IPython
 profile_default/

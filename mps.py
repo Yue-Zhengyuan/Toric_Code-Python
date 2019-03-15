@@ -12,9 +12,9 @@ import copy
 import gates
 from itertools import product
 
-def svd_truncate(u, s, v, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
+def svd_truncate(u, s, v, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}, roundDigit=8):
     """
-    Truncate SVD results
+    Truncate and round SVD results
 
     Returns
     ---------------
@@ -27,6 +27,8 @@ def svd_truncate(u, s, v, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
         np.linalg.svd results
     args : dict
         parameters controlling SVD
+    roundDigit : int (default: 8)
+        Number of decimal places to round to
     """
     # get arguments
     cutoff = args.setdefault('cutoff', 1.0E-5)
@@ -49,9 +51,14 @@ def svd_truncate(u, s, v, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
     if scale == True:
         average = np.average(s)
         s /= average
+
+    # rounding
+    u = np.around(u, decimals=roundDigit)
+    s = np.around(s, decimals=roundDigit)
+    v = np.around(v, decimals=roundDigit)
     return u, s, v, retain_dim
 
-def position(psi, pos, oldcenter=-1, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
+def position(psi, pos, oldcenter=-1, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
     """
     set the orthogonality center of the MPS |psi> to pos'th site
 
@@ -116,19 +123,19 @@ def position(psi, pos, oldcenter=-1, args={'cutoff':1.0E-5, 'bondm':200, 'scale'
         # phi[i-1], phi[i] = signCorrect(phi[i-1], phi[i])
     return phi
 
-def normalize(psi, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
+def normalize(psi, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
     """
     Normalize MPS |psi> (and set orthogonality center at site 0)
     """
     phi = copy.copy(psi)
-    pos = 0     # right canonical
+    pos = len(psi) - 1    # left canonical
     phi = position(phi, pos, args=args)
     norm = np.tensordot(phi[pos], np.conj(phi[pos]), ([0,1,2],[0,1,2]))
     norm = np.sqrt(norm)
     phi[pos] /= norm
     return phi
 
-def svd_nsite(n, tensor, dir, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
+def svd_nsite(n, tensor, dir, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
     """
     Do SVD to decomposite one large tensor into n site tensors of an MPS
     (u, v are made "positive" in terms of their eigenvalue)
@@ -150,8 +157,7 @@ def svd_nsite(n, tensor, dir, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}
     phyDim = list(tensor.shape[1:-1])
     result = []
     mat = copy.copy(tensor)
-    # rounding
-    mat = np.around(mat, decimals=8)
+    
     if dir == 'Fromleft':
         old_retain_dim = virDim[0]
         for i in np.arange(0, n - 1, 1, dtype=int):
@@ -185,7 +191,7 @@ def svd_nsite(n, tensor, dir, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}
         result.reverse()
     return result
 
-def applyMPOtoMPS(op, psi, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
+def applyMPOtoMPS(op, psi, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
     """
     Multiply MPO and MPS: op|psi>
     """
@@ -285,7 +291,7 @@ def matElem(psi1, op, psi2):
     return elem[0]
 
 def gateTEvol(psi, gateList, ttotal, tstep, 
-args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
+args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
     """
     Perform time evolution to MPS using Trotter gates
 
@@ -415,7 +421,7 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
     phi = normalize(phi, args=args)
     return phi
 
-def sum(psi1, psi2, args={'cutoff':1.0E-5, 'bondm':200, 'scale':False}):
+def sum(psi1, psi2, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
     """
     Sum two MPS's
 

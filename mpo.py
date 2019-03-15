@@ -54,7 +54,7 @@ def decombPhyLeg(psi, allPhyDim):
         op[i] = np.reshape(op[i], tuple(newshape))
     return op
 
-def position(op, pos, oldcenter=-1, args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
+def position(op, pos, oldcenter=-1, args={'cutoff':1.0E-6, 'bondm':256, 'scale':True}):
     """
     set the orthogonality center of the MPO
     with respect to only part of the MPO
@@ -77,7 +77,7 @@ def position(op, pos, oldcenter=-1, args={'cutoff':1.0E-5, 'bondm':200, 'scale':
     op2 = decombPhyLeg(op2, allPhyDim)
     return op2
 
-def svd_nsite(n, tensor, dir, args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
+def svd_nsite(n, tensor, dir, args={'cutoff':1.0E-6, 'bondm':256, 'scale':True}):
     """
     Do SVD to decomposite one large tensor into n site tensors of an MPO
     
@@ -114,7 +114,7 @@ def svd_nsite(n, tensor, dir, args={'cutoff':1.0E-5, 'bondm':200, 'scale':True})
     return result
 
 def gateTEvol(op, gateList, ttotal, tstep, 
-args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
+args={'cutoff':1.0E-6, 'bondm':256, 'scale':True}):
     """
     Perform time evolution to MPO using Trotter gates
 
@@ -261,7 +261,7 @@ args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
     # return not normalized MPO op2
     return op2
 
-def sum(op1, op2, args={'cutoff':1.0E-5, 'bondm':200, 'scale':True}):
+def sum(op1, op2, args={'cutoff':1.0E-6, 'bondm':256, 'scale':True}):
     """
     Calculate the inner product of two MPO's
 
