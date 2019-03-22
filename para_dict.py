@@ -11,7 +11,7 @@ import numpy as np
 # system parameters
 args = {'nx': 7, 'ny': 7, 
 'U': 0.0, 'g': 1.0, 
-'hz': 0.5, 'hx': 0.0, 'hy': 0.0, 
+'hz': 0.5, 
 'tau': 0.01, 'ttotal': 1.0, 
 'cutoff': 1.0E-6, 'bondm': 256, 'scale': False}
 

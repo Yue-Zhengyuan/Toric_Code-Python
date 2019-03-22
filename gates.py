@@ -35,7 +35,8 @@ def toExpH4(ham, order):
         approximation order in the Taylor series
     """
     term = copy.copy(ham)
-    unit = np.einsum('ab,cd,ef,gh->abcdefgh', p.iden, p.iden, p.iden, p.iden)
+    mat_list = [p.iden] * 4
+    unit = np.einsum('ab,cd,ef,gh->abcdefgh', *mat_list)
     for i in np.arange(order, 0, -1, dtype=int):
         term /= i
         gate = unit + term
@@ -76,35 +77,26 @@ class gate(object):
         # then convert to time evolution gate via toExpH
 
         # System Hamiltonian:
-        #   H = - U * \sum(A_p) - g * \sum(B_p) - hz * \sum(Sz) - hx * \sum(Sx)
+        #   H = - U * \sum(A_p) - g * \sum(B_p) - hz * \sum(Sz)
         # Plaquette operator (with field)
         elif ((self.kind == 'tEvolP') and (siteNum == 4)):
-            ham = np.einsum('ab,cd,ef,gh->abcdefgh', p.sx, p.sx, p.sx, p.sx) * (-args['g'])
+            mat_list = [p.sx] * 4
+            ham = np.einsum('ab,cd,ef,gh->abcdefgh', *mat_list) * (-args['g'])
             # adding field
-            if (args['hx'] != 0 or args['hy'] != 0 or args['hz'] != 0):
-                if args['hx'] != 0:
-                    field = args['hx']
-                    pauli = p.sx
-                elif args['hy'] != 0:
-                    field = args['hy']
-                    pauli = p.sy
-                elif args['hz'] != 0:
-                    field = args['hz']
-                    pauli = p.sz
-                # else: 
-                #     sys.exit('Added field in more than one direction')
+            if (args['hz'] != 0):
                 for i in range(4):
                     if (not putsite[sites[i]]):
                         mat_list = [p.iden] * 4
-                        mat_list[i] = pauli
-                        ham += np.einsum('ab,cd,ef,gh->abcdefgh', mat_list[0], mat_list[1], mat_list[2], mat_list[3]) * (-field)
+                        mat_list[i] = p.sz
+                        ham += np.einsum('ab,cd,ef,gh->abcdefgh', *mat_list) * (-args['hz'])
             # create gate exp(-iHt/2)
             ham *= (-args['tau'] / 2) * 1.0j
             self.gate = toExpH4(ham, expOrder)
 
         # Vertex operator
         elif ((self.kind == 'tEvolV') and (siteNum == 4)):
-            ham = np.einsum('ab,cd,ef,gh->abcdefgh', p.sz, p.sz, p.sz, p.sz) * (-args['U'])
+            mat_list = [p.sz] * 4
+            ham = np.einsum('ab,cd,ef,gh->abcdefgh', *mat_list) * (-args['U'])
             ham *= (-args['tau'] / 2) * 1.0j
             self.gate = toExpH4(ham, expOrder)
         # Error handling
@@ -179,7 +171,7 @@ def makeGateList(allsites, args, region=range(p.args['n'])):
                 Suppose a 4-site operator acts on [11,15,16,20]
                 It will become [14,15,16,17] after applying the swap gates 
                 We NOW add field to site 14,15,16,17 instead of 11,15,16,20
-                But we will set putsite[11,15,16,20], not [14,15,16,17] to True
+                But we will set putsite[11,15,16,20] (not [14,15,16,17]) to True
                 """
                 for site in sites:
                     putsite[site] = True
