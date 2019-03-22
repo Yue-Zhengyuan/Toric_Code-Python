@@ -11,6 +11,11 @@ import sys
 import copy
 import gates
 from itertools import product
+import atexit
+import line_profiler as lp
+
+profile = lp.LineProfiler()
+atexit.register(profile.print_stats)
 
 def svd_truncate(u, s, v, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}, roundDigit=8):
     """

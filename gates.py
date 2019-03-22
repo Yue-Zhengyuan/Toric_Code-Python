@@ -137,20 +137,20 @@ def makeGateList(allsites, args, region=range(p.args['n'])):
     # open boundary condition
     # make plaquette gates (together with field)
     if (args['g'] != 0):
-        for i in np.arange(1, p.n - (args['nx']-1), 2 * args['nx'] - 1, dtype=int):
+        for i in np.arange(1, args['n'] - (args['nx']-1), 2 * args['nx'] - 1, dtype=int):
             for j in np.arange(0, args['nx'] - 1, 1, dtype=int):
                 u = i + j
                 l = u + args['nx'] - 1
                 r = l + 1
                 d = l + args['nx']
                 sites = [u - 1, l - 1, r - 1, d - 1]
-                inRegion = True
-                for site in sites:
-                    if site in region:
-                        pass
-                    else:
-                        inRegion = False
-                        continue
+                # inRegion = True
+                # for site in sites:
+                #     if site in region:
+                #         pass
+                #     else:
+                #         inRegion = False
+                #         continue
                 sites.sort()
                 # create swap gates
                 for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):
@@ -184,20 +184,20 @@ def makeGateList(allsites, args, region=range(p.args['n'])):
     # plaquette (XXXX), closed string (X...X) and field (Z)
     # make vertex gates
     if (args['U'] != 0):
-        for i in np.arange(args['nx'] + 1, p.n - 3 * args['nx'] + 2, 2 * args['nx'] - 1, dtype=int):
+        for i in np.arange(args['nx'] + 1, args['n'] - 3 * args['nx'] + 2, 2 * args['nx'] - 1, dtype=int):
             for j in np.arange(0, args['nx'] - 2, 1, dtype=int):
                 u = i + j
                 l = u + args['nx'] - 1
                 r = l + 1
                 d = l + args['nx']
                 sites = [u - 1, l - 1, r - 1, d - 1]
-                inRegion = True
-                for site in sites:
-                    if site in region:
-                        pass
-                    else:
-                        inRegion = False
-                        continue
+                # inRegion = True
+                # for site in sites:
+                #     if site in region:
+                #         pass
+                #     else:
+                #         inRegion = False
+                #         continue
                 sites.sort()
                 # create swap gates
                 for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):

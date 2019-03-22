@@ -28,7 +28,7 @@ args['hz'] = 0.0
 
 # create closed string operator MPO enclosing different area(S)
 # read string from file
-with open('newlist.txt', 'r') as f:
+with open('list.txt', 'r') as f:
     line = f.readlines()
 
 # create result directory
