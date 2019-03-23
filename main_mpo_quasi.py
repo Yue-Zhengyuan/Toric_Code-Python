@@ -23,8 +23,6 @@ import ast
 
 args = copy.copy(p.args)
 # clear magnetic field
-args['hx'] = 0.0
-args['hy'] = 0.0
 args['hz'] = 0.0
 # turn off vertex operator ZZZZ
 args['U'] = 0

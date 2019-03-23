@@ -9,7 +9,7 @@
 import numpy as np
 
 # system parameters
-args = {'nx': 7, 'ny': 7, 
+args = {'nx': 8, 'ny': 8, 
 'U': 0.0, 'g': 1.0, 
 'hz': 0.5, 
 'tau': 0.01, 'ttotal': 1.0, 

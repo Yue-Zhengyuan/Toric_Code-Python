@@ -41,7 +41,7 @@ def svd_truncate(u, s, v, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}, ro
     scale = args.setdefault('scale', False)
     # remove zero sigular values
     s = s[np.where(s[:] > 0)[0]]
-    s_sum = np.linalg.norm(s)**2
+    s_sum = np.dot(s, s)
     trunc = 0
     origin_dim = s.shape[0]
     remove_dim = 0
@@ -99,7 +99,7 @@ def position(psi, pos, oldcenter=-1, args={'cutoff':1.0E-6, 'bondm':256, 'scale'
         phyDim = phi[i].shape[1]
         # i,j: virtual leg; a: physical leg
         mat = np.reshape(phi[i], (virDim[0]*phyDim, virDim[1]))
-        a,s,v = np.linalg.svd(mat)
+        a,s,v = np.linalg.svd(mat, full_matrices=False)
         a,s,v,retain_dim = svd_truncate(a, s, v, args=args)
         # replace mps[i] with a
         a = np.reshape(a, (virDim[0],phyDim,retain_dim))
@@ -116,7 +116,7 @@ def position(psi, pos, oldcenter=-1, args={'cutoff':1.0E-6, 'bondm':256, 'scale'
         phyDim = phi[i].shape[1]
         # i,j: virtual leg; a: physical leg
         mat = np.reshape(phi[i], (virDim[0], phyDim*virDim[1]))
-        u,s,b = np.linalg.svd(mat)
+        u,s,b = np.linalg.svd(mat, full_matrices=False)
         u,s,b,retain_dim = svd_truncate(u, s, b, args=args)
         # replace mps[i] with b
         b = np.reshape(b, (retain_dim,phyDim,virDim[1]))

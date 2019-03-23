@@ -29,13 +29,14 @@ args['U'] = 0
 args['scale'] = True
 
 # create result directory
-result_dir = sys.argv[1]
+# result_dir = sys.argv[1]
 
 # create closed string operator MPO enclosing different area(S)
 # read string from file
-with open('list.txt', 'r') as f:
+with open('newlist.txt', 'r') as f:
     line = f.readlines()
-string_no = int(sys.argv[2])
+# string_no = int(sys.argv[2])
+string_no = 19
 bond_on_str, str_area = lat.convertToStrOp(ast.literal_eval(line[string_no]))
 # create string operator
 str_op = []
@@ -56,34 +57,17 @@ psi = gnd_state.gnd_state_builder(args)
 
 tstart = time.perf_counter()
 
-# adiabatic evolution:
-# exp(+iHt) S exp(-iHt)
-stepNum = int(p.args['ttotal']/p.args['tau'])
+# quasi-adiabatic evolution: 
+# exp(-iH't) S exp(+iH't)
+stepNum = 4
 iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
-args['U'] *= -1
-args['g'] *= -1
-for hz in reversed(iterlist):
-    args['hz'] = -hz
+timestep = args['ttotal']/stepNum
+for hz in iterlist:
+    args['hz'] = hz
     gateList = gates.makeGateList(psi, args)
-    str_op = mpo.gateTEvol(str_op, gateList, args['ttotal']/stepNum, args['tau'], args=args)
+    str_op = mpo.gateTEvol(str_op, gateList, timestep, timestep, args=args)
+
 tend = time.perf_counter()
-with open(result_dir + '/parameters.txt', 'a+') as file:
-    file.write("\nArea = " + str(str_area) + '\t')
-    file.write("Adiabatic evolution: " + str(tend-tstart) + " s\n")
-
-strOpFilename = result_dir + '/outfile/string' + str(string_no) + '.txt'
-mpo.save_to_file(str_op, strOpFilename)
-with open(strOpFilename, 'a+') as file:
-    file.write("\nSites on the string: \n")
-    file.write(str(bond_on_str) + '\n')
-    file.write(str(bond_list) + '\n')
-
-# apply undressed string
-# <psi| exp(+iHt) exp(-iH't) S exp(+iH't) exp(-iHt) |psi>
-args['scale'] = False
-result = mps.applyMPOtoMPS(str_op, psi, args=args)
-result = mps.normalize(result, args=args)
-result = mps.overlap(psi, result)
-with open(result_dir + '/undressed_result.txt', 'a+') as file:
-    file.write(str(str_area) + "\t" + str(result) + '\n')
+print("Time evolution:", tend - tstart)
+mpo.printdata(str_op)

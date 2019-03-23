@@ -22,8 +22,6 @@ import ast
 
 args = copy.copy(p.args)
 # clear magnetic field
-args['hx'] = 0.0
-args['hy'] = 0.0
 args['hz'] = 0.0
 
 # create closed string operator MPO enclosing different area(S)
@@ -92,10 +90,11 @@ iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 args['U'] *= -1
 args['g'] *= -1
+timestep = args['ttotal']/stepNum
 for hz in reversed(iterlist):
     args['hz'] = -hz
     gateList = gates.makeGateList(psi, args)
-    psi = mps.gateTEvol(psi, gateList, args['ttotal']/stepNum, args['tau'], args=args)
+    psi = mps.gateTEvol(psi, gateList, timestep, timestep, args=args)
 tend = time.perf_counter()
 with open(result_dir + '/parameters.txt', 'a+') as file:
     file.write("\nQuasi-adiabatic evolution: " + str(tend-tstart) + " s\n")
