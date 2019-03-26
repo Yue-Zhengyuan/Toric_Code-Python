@@ -263,7 +263,7 @@ args={'cutoff':1.0E-6, 'bondm':256, 'scale':True}):
 
 def sum(op1, op2, args={'cutoff':1.0E-6, 'bondm':256, 'scale':True}):
     """
-    Calculate the inner product of two MPO's
+    Calculate the sum product of two MPO's
 
     Parameters
     ------------

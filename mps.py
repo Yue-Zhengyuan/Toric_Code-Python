@@ -325,27 +325,7 @@ args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
         for g in range(gateNum):
             gate = gateList[g].gate
             sites = gateList[g].sites
-            if len(sites) == 1:
-                # contraction
-                #
-                #       a
-                #      _|_
-                #      | |      gate = exp(-i H dt)
-                #      -|-
-                #       b
-                #      _|_
-                #  i --| |-- k
-                #      --- 
-                #
-                ten_AA = np.einsum('ibk,ab->iak',phi[sites[0]],gate, optimize=True)
-                phi[sites[0]] = ten_AA
-                if g < gateNum - 1:
-                    phi = position(phi, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
-                    oldcenter = gateList[g+1].sites[0]
-                else:
-                    phi = position(phi, 0, oldcenter=oldcenter, args=args)
-                    oldcenter = 0
-            elif len(sites) == 2:
+            if len(sites) == 2:
                 # contraction
                 #
                 #       a      c

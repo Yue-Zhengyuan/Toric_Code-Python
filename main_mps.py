@@ -39,6 +39,7 @@ os.makedirs(result_dir, exist_ok=True)
 # save parameters
 with open(result_dir + '/parameters.txt', 'w+') as file:
     file.write(json.dumps(p.args))  # use json.loads to do the reverse
+    file.write("\nGauging turned off\n")
     
 # create Toric Code ground state |psi>
 psi = gnd_state.gnd_state_builder(args)
@@ -49,10 +50,11 @@ tstart = time.perf_counter()
 stepNum = int(p.args['ttotal']/p.args['tau'])
 iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
+timestep = args['ttotal']/stepNum
 for hz in iterlist:
     args['hz'] = hz
     gateList = gates.makeGateList(psi, args)
-    psi = mps.gateTEvol(psi, gateList, args['ttotal']/stepNum, args['tau'], args=args)
+    psi = mps.gateTEvol(psi, gateList, timestep, args['tau'], args=args)
 tend = time.perf_counter()
 with open(result_dir + '/parameters.txt', 'a+') as file:
     file.write("\nAdiabatic evolution: " + str(tend-tstart) + " s\n")
@@ -86,19 +88,21 @@ for string_no in range(len(line)):
 # quasi adiabatic evolution:
 # exp(+iH't) exp(-iHt) |psi>
 stepNum = 4
-iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
-iterlist = np.delete(iterlist, 0)
+itlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
+iterlist = np.zeros(stepNum, dtype=float)
+for i in range(stepNum):
+    iterlist[i] = (itlist[i] + itlist[i+1])/2
 args['U'] *= -1
 args['g'] *= -1
 timestep = args['ttotal']/stepNum
 for hz in reversed(iterlist):
     args['hz'] = -hz
     gateList = gates.makeGateList(psi, args)
-    psi = mps.gateTEvol(psi, gateList, timestep, timestep, args=args)
+    psi = mps.gateTEvol(psi, gateList, timestep, args['tau'], args=args)
 tend = time.perf_counter()
 with open(result_dir + '/parameters.txt', 'a+') as file:
     file.write("\nQuasi-adiabatic evolution: " + str(tend-tstart) + " s\n")
-    file.write("Using " + str(stepNum) + ' steps\n')
+    file.write("Using " + str(stepNum) + ' steps (improved field in each step)\n')
 
 # apply dressed string
 # <psi| exp(+iHt) exp(-iH't) S exp(+iH't) exp(-iHt) |psi>

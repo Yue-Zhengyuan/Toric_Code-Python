@@ -53,19 +53,19 @@ for i in range(p.n):
         str_op[i][0,:,:,0] = p.iden
 
 # create Toric Code ground state |psi>
-psi = gnd_state.gnd_state_builder(args)
+# psi = gnd_state.gnd_state_builder(args)
 
 tstart = time.perf_counter()
 
 # quasi-adiabatic evolution: 
 # exp(-iH't) S exp(+iH't)
-stepNum = 4
+stepNum = 25
 iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 timestep = args['ttotal']/stepNum
 for hz in iterlist:
     args['hz'] = hz
-    gateList = gates.makeGateList(psi, args)
+    gateList = gates.makeGateList(str_op, args)
     str_op = mpo.gateTEvol(str_op, gateList, timestep, timestep, args=args)
 
 tend = time.perf_counter()
