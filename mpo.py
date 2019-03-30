@@ -54,7 +54,7 @@ def decombPhyLeg(psi, allPhyDim):
         op[i] = np.reshape(op[i], tuple(newshape))
     return op
 
-def position(op, pos, oldcenter=-1, args={'cutoff':1.0E-6, 'bondm':256, 'scale':True}):
+def position(op, pos, args, oldcenter=-1, compute_entg=False):
     """
     set the orthogonality center of the MPO
     with respect to only part of the MPO
@@ -73,11 +73,12 @@ def position(op, pos, oldcenter=-1, args={'cutoff':1.0E-6, 'bondm':256, 'scale':
     op2 = copy.copy(op)
     allPhyDim = getPhyDim(op2)
     op2 = combinePhyLeg(op2)
-    op2 = mps.position(op2, pos, oldcenter=oldcenter, args=args)
+    op2 = mps.position(op2, pos, oldcenter=oldcenter, 
+    compute_entg=compute_entg, args=args)
     op2 = decombPhyLeg(op2, allPhyDim)
     return op2
 
-def svd_nsite(n, tensor, dir, args={'cutoff':1.0E-6, 'bondm':256, 'scale':True}):
+def svd_nsite(n, tensor, dir, args):
     """
     Do SVD to decomposite one large tensor into n site tensors of an MPO
     
@@ -113,8 +114,7 @@ def svd_nsite(n, tensor, dir, args={'cutoff':1.0E-6, 'bondm':256, 'scale':True})
         result[i] = np.reshape(result[i], newshape)
     return result
 
-def gateTEvol(op, gateList, ttotal, tstep, 
-args={'cutoff':1.0E-6, 'bondm':256, 'scale':True}):
+def gateTEvol(op, gateList, ttotal, tstep, args):
     """
     Perform time evolution to MPO using Trotter gates
 
@@ -235,7 +235,7 @@ args={'cutoff':1.0E-6, 'bondm':256, 'scale':True}):
     # return not normalized MPO op2
     return op2
 
-def sum(op1, op2, args={'cutoff':1.0E-6, 'bondm':256, 'scale':True}):
+def sum(op1, op2, args, compress="svd"):
     """
     Calculate the sum product of two MPO's
 
@@ -253,15 +253,29 @@ def sum(op1, op2, args={'cutoff':1.0E-6, 'bondm':256, 'scale':True}):
         if (op1[i].shape[1] != op2[i].shape[1] or op1[i].shape[2] != op2[i].shape[2]):
             sys.exit("The physical dimensions of the two MPOs do not match")
 
-    psi1 = copy.copy(op1)
-    allPhyDim = getPhyDim(op1)
-    psi1 = combinePhyLeg(psi1)
+    if (compress == None or compress == "svd"):
+        psi1 = copy.copy(op1)
+        allPhyDim = getPhyDim(op1)
+        psi1 = combinePhyLeg(psi1)
 
-    psi2 = copy.copy(op2)
-    psi2 = combinePhyLeg(psi2)
-    result = mps.sum(psi1, psi2, args=args)
-    result = decombPhyLeg(result, allPhyDim)
+        psi2 = copy.copy(op2)
+        psi2 = combinePhyLeg(psi2)
+        result = mps.sum(psi1, psi2, args, compress=compress)
+        result = decombPhyLeg(result, allPhyDim)
+
+    # variational optimization
+    elif (compress == "var"):
+        pass
+    
+    else: 
+        sys.exit("Wrong compress parameter")
     return result
+
+# def multMPO(op1, op2, args, bondm=10, compress="var"):
+    """
+    Calculate op1 * op2 using variational compression method
+    """
+
 
 def printdata(op):
     mps.printdata(op)

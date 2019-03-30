@@ -162,6 +162,8 @@ def gnd_state_builder(args):
         for site in range(m):
             psi.append(decomp[site])
     args['scale'] = False
+
+    psi = mps.position(psi, len(psi)-1, args)
     psi = mps.normalize(psi, args=args)
 
     return psi

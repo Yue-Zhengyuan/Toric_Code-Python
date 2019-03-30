@@ -17,7 +17,7 @@ from itertools import product
 # profile = lp.LineProfiler()
 # atexit.register(profile.print_stats)
 
-def svd_truncate(u, s, v, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}, roundDigit=8):
+def svd_truncate(u, s, v, args, roundDigit=8):
     """
     Truncate and round SVD results
 
@@ -36,10 +36,10 @@ def svd_truncate(u, s, v, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}, ro
         Number of decimal places to round to
     """
     # get arguments
-    cutoff = args.setdefault('cutoff', 1.0E-5)
-    bondm = args.setdefault('bondm', 200)
-    scale = args.setdefault('scale', False)
-    # remove zero sigular values
+    cutoff = args['cutoff']
+    bondm = args['bondm']
+    scale = args['scale']
+    # remove zero singular values
     s = s[np.where(s[:] > 0)[0]]
     s_sum = np.dot(s, s)
     trunc = 0
@@ -63,15 +63,17 @@ def svd_truncate(u, s, v, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}, ro
     # v = np.around(v, decimals=roundDigit)
     return u, s, v, retain_dim
 
-def position(psi, pos, oldcenter=-1, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
+def position(psi, pos, args, oldcenter=-1, compute_entg=False):
     """
     set the orthogonality center of the MPS |psi> to pos'th site
 
     Parameters
     ---------------
-    old center : int (default = -1)
+    oldcenter : int (default = -1)
         when old center < 0,            do right canonization
         when old center > len(psi)-1,   do left canonization
+    compute_entg : default False
+        if True, return the entanglement entropy between the two sides of the orthogonality center
     """
     phi = copy.copy(psi)
     siteNum = len(phi)
@@ -108,7 +110,6 @@ def position(psi, pos, oldcenter=-1, args={'cutoff':1.0E-6, 'bondm':256, 'scale'
         mat_s = np.diag(s)
         v = np.dot(mat_s, v)
         phi[i+1] = np.einsum('si,iaj->saj', v, phi[i+1], optimize=True)
-        # phi[i], phi[i+1] = signCorrect(phi[i], phi[i+1])
     # right canonization (siteNum-1 to pos+1)
     # for i in np.arange(siteNum-1, pos, -1, dtype=int):
     for i in right:
@@ -125,10 +126,20 @@ def position(psi, pos, oldcenter=-1, args={'cutoff':1.0E-6, 'bondm':256, 'scale'
         mat_s = np.diag(s)
         u = np.dot(u, mat_s)
         phi[i-1] = np.einsum('iaj,js->ias', phi[i-1], u, optimize=True)
-        # phi[i-1], phi[i] = signCorrect(phi[i-1], phi[i])
-    return phi
+    # compute entanglement entropy
+    if compute_entg == True:
+        # do svd for the matrix at the orthogonality center
+        s = np.linalg.svd(phi[pos], full_matrices=False, compute_uv=False)
+        # normalize spectrum: sum(s**2) = 1
+        s2 = s**2
+        s2 = s2 / np.sum(s2)
+        ln_s2 = np.log(s2)
+        entg = -np.sum(s2 * ln_s2)
+        return phi, entg
+    else: 
+        return phi
 
-def normalize(psi, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
+def normalize(psi, args):
     """
     Normalize MPS |psi> (and set orthogonality center at site 0)
     """
@@ -140,7 +151,7 @@ def normalize(psi, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
     phi[pos] /= norm
     return phi
 
-def svd_nsite(n, tensor, dir, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
+def svd_nsite(n, tensor, dir, args):
     """
     Do SVD to decomposite one large tensor into n site tensors of an MPS
     (u, v are made "positive" in terms of their eigenvalue)
@@ -196,7 +207,7 @@ def svd_nsite(n, tensor, dir, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}
         result.reverse()
     return result
 
-def applyMPOtoMPS(op, psi, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
+def applyMPOtoMPS(op, psi, args):
     """
     Multiply MPO and MPS: op|psi>
     """
@@ -295,8 +306,7 @@ def matElem(psi1, op, psi2):
     elem = np.reshape(elem, 1)
     return elem[0]
 
-def gateTEvol(psi, gateList, ttotal, tstep, 
-args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
+def gateTEvol(psi, gateList, ttotal, tstep, args):
     """
     Perform time evolution to MPS using Trotter gates
 
@@ -406,7 +416,7 @@ args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
     phi = normalize(phi, args=args)
     return phi
 
-def sum(psi1, psi2, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
+def sum(psi1, psi2, args, compress="svd"):
     """
     Sum two MPS's
 
@@ -414,9 +424,12 @@ def sum(psi1, psi2, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
     ------------
     psi1, psi2 : list of numpy arrays
         The two MPSs to be added
+    compress : None / "var" / "svd"
+        compression method
     args : dict
         parameters controlling SVD
     """
+    periodic = args['yperiodic']
     # dimension check
     if len(psi1) != len(psi2):
         sys.exit("The lengths of the two MPSs do not match")
@@ -429,41 +442,63 @@ def sum(psi1, psi2, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):
     # for open boundary condition
 
     # first site
-    i = 0
-    virDim1 = [psi1[i].shape[0], psi1[i].shape[-1]]
-    virDim2 = [psi2[i].shape[0], psi2[i].shape[-1]]
-    phyDim = psi1[i].shape[1]
-    virDim = [virDim1[0], virDim1[1]+virDim2[1]]
-    result.append(np.zeros((virDim[0], phyDim, virDim[1]), dtype=complex))
-    # make row "vector"
-    result[i][0:virDim1[0],:,0:virDim1[1]] = psi1[i]
-    result[i][0:virDim1[0],:,virDim1[1]:virDim[1]] = psi2[i]
-
-    # other sites
-    for i in np.arange(1, len(psi1)-1, 1, dtype=int):
+    if (compress == None or compress == "svd"):
+        i = 0
         virDim1 = [psi1[i].shape[0], psi1[i].shape[-1]]
         virDim2 = [psi2[i].shape[0], psi2[i].shape[-1]]
         phyDim = psi1[i].shape[1]
-        virDim = [virDim1[0]+virDim2[0], virDim1[1]+virDim2[1]]
-        result.append(np.zeros((virDim[0], phyDim, virDim[1]), dtype=complex))
-        # direct sum
-        result[i][0:virDim1[0],:,0:virDim1[1]] = psi1[i]
-        result[i][virDim1[0]:virDim[0],:,virDim1[1]:virDim[1]] = psi2[i]
+        if periodic == False:
+            virDim = [virDim1[0], virDim1[1]+virDim2[1]]
+            result.append(np.zeros((virDim[0], phyDim, virDim[1]), dtype=complex))
+            # make row "vector"
+            result[i][0:virDim1[0],:,0:virDim1[1]] = psi1[i]
+            result[i][0:virDim1[0],:,virDim1[1]:virDim[1]] = psi2[i]
+        elif periodic == True:
+            virDim = [virDim1[0]+virDim2[0], virDim1[1]+virDim2[1]]
+            result.append(np.zeros((virDim[0], phyDim, virDim[1]), dtype=complex))
+            # direct sum
+            result[i][0:virDim1[0],:,0:virDim1[1]] = psi1[i]
+            result[i][virDim1[0]:virDim[0],:,virDim1[1]:virDim[1]] = psi2[i]
 
-    # last site
-    i = len(psi1) - 1
-    virDim1 = [psi1[i].shape[0], psi1[i].shape[-1]]
-    virDim2 = [psi2[i].shape[0], psi2[i].shape[-1]]
-    phyDim = psi1[i].shape[1]
-    virDim = [virDim1[0]+virDim2[0], virDim1[1]]
-    result.append(np.zeros((virDim[0], phyDim, virDim[1]), dtype=complex))
-    # make column "vector"
-    result[i][0:virDim1[0],:,0:virDim1[1]] = psi1[i]
-    result[i][virDim1[0]:virDim[0],:,0:virDim1[1]] = psi2[i]
+        # other sites
+        for i in np.arange(1, len(psi1)-1, 1, dtype=int):
+            virDim1 = [psi1[i].shape[0], psi1[i].shape[-1]]
+            virDim2 = [psi2[i].shape[0], psi2[i].shape[-1]]
+            phyDim = psi1[i].shape[1]
+            virDim = [virDim1[0]+virDim2[0], virDim1[1]+virDim2[1]]
+            result.append(np.zeros((virDim[0], phyDim, virDim[1]), dtype=complex))
+            # direct sum
+            result[i][0:virDim1[0],:,0:virDim1[1]] = psi1[i]
+            result[i][virDim1[0]:virDim[0],:,virDim1[1]:virDim[1]] = psi2[i]
 
-    # remove useless physical legs (will add later) 
+        # last site
+        i = len(psi1) - 1
+        virDim1 = [psi1[i].shape[0], psi1[i].shape[-1]]
+        virDim2 = [psi2[i].shape[0], psi2[i].shape[-1]]
+        phyDim = psi1[i].shape[1]
+        if periodic == False:
+            virDim = [virDim1[0]+virDim2[0], virDim1[1]]
+            result.append(np.zeros((virDim[0], phyDim, virDim[1]), dtype=complex))
+            # make column "vector"
+            result[i][0:virDim1[0],:,0:virDim1[1]] = psi1[i]
+            result[i][virDim1[0]:virDim[0],:,0:virDim1[1]] = psi2[i]
+        elif periodic == True:
+            virDim = [virDim1[0]+virDim2[0], virDim1[1]+virDim2[1]]
+            result.append(np.zeros((virDim[0], phyDim, virDim[1]), dtype=complex))
+            # direct sum
+            result[i][0:virDim1[0],:,0:virDim1[1]] = psi1[i]
+            result[i][virDim1[0]:virDim[0],:,virDim1[1]:virDim[1]] = psi2[i]
 
-    result = position(result, 0, args=args)
+        # remove useless physical legs (will add later) 
+        if compress == "svd":
+            result = position(result, 0, args=args)
+
+    # variational optimization
+    elif (compress == "var"):
+        pass
+
+    else: 
+        sys.exit("Wrong compress parameter")
     return result
 
 def printdata(psi):

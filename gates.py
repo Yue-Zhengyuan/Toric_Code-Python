@@ -19,9 +19,9 @@ import copy
 # = 1 + x * (1 + x/2 *(1 + x/3 * (...
 # ~ ((x/3 + 1) * x/2 + 1) * x + 1
 
-def toExpH4(ham, order):
+def toExpH(ham, order):
     """
-    Create 4-site time-evolution gate using the approximation
+    Create 3/4-site time-evolution gate using the approximation
 
         exp(x) = 1 + x + x^2/2! + x^3/3! ..
         = 1 + x * (1 + x/2 *(1 + x/3 * (...
@@ -29,18 +29,29 @@ def toExpH4(ham, order):
 
     Parameters
     ---------------
-    ham : list of length 4 of numpy arrays
-        4-site local Hamiltonian
+    ham : numpy array
+        3/4-site local Hamiltonian
     order : int
         approximation order in the Taylor series
     """
+    siteNum = int(len(np.shape(ham)) / 2)
+    if (siteNum != 3 and siteNum != 4):
+        sys.exit("Wrong number of sites")
+
     term = copy.copy(ham)
-    mat_list = [p.iden] * 4
-    unit = np.einsum('ab,cd,ef,gh->abcdefgh', *mat_list)
+    mat_list = [p.iden] * siteNum
+    if siteNum == 3:
+        unit = np.einsum('ab,cd,ef->abcdef', *mat_list)
+    elif siteNum == 4:
+        unit = np.einsum('ab,cd,ef,gh->abcdefgh', *mat_list)
+    
     for i in np.arange(order, 0, -1, dtype=int):
         term /= i
         gate = unit + term
-        term = np.einsum('abcdefgh,bwdxfyhz->awcxeygz', gate, ham)
+        if siteNum == 3:
+            term = np.einsum('abcdef,bwdxfy->awcxey', gate, ham)
+        elif siteNum == 4:
+            term = np.einsum('abcdefgh,bwdxfyhz->awcxeygz', gate, ham)
     return gate
 
 class gate(object):
@@ -65,7 +76,7 @@ class gate(object):
         self.sites.sort()
         self.kind = kind
         siteNum = len(self.sites)
-        expOrder = 100
+        expOrder = 50
         # create swap gate
         if ((self.kind == 'Swap') and (siteNum == 2)):
             self.gate = np.zeros((2,2,2,2), dtype=complex)
@@ -79,26 +90,38 @@ class gate(object):
         # System Hamiltonian:
         #   H = - U * \sum(A_p) - g * \sum(B_p) - hz * \sum(Sz)
         # Plaquette operator (with field)
-        elif ((self.kind == 'tEvolP') and (siteNum == 4)):
-            mat_list = [p.sx] * 4
-            ham = np.einsum('ab,cd,ef,gh->abcdefgh', *mat_list) * (-args['g'])
+        elif (self.kind == 'tEvolP'):
+            mat_list = [p.sx] * siteNum
+            ham = copy.copy(mat_list[0])
+            for i in range(1, siteNum):
+                ham = np.tensordot(ham, mat_list[i], axes=0)
+            # ham = np.einsum('ab,cd,ef,gh->abcdefgh', *mat_list) * (-args['g'])
+            ham *= (-args['g'])
             # adding field
             if (args['hz'] != 0):
-                for i in range(4):
+                for i in range(siteNum):
                     if (not putsite[sites[i]]):
-                        mat_list = [p.iden] * 4
+                        mat_list = [p.iden] * siteNum
                         mat_list[i] = p.sz
-                        ham += np.einsum('ab,cd,ef,gh->abcdefgh', *mat_list) * (-args['hz'])
+                        addterm = copy.copy(mat_list[0])
+                        for j in range(1, siteNum):
+                            addterm = np.tensordot(addterm, mat_list[j], axes=0)
+                        addterm *= (-args['hz'])
+                        ham += addterm
             # create gate exp(-iHt/2)
             ham *= (-args['tau'] / 2) * 1.0j
-            self.gate = toExpH4(ham, expOrder)
+            self.gate = toExpH(ham, expOrder)
 
         # Vertex operator
-        elif ((self.kind == 'tEvolV') and (siteNum == 4)):
-            mat_list = [p.sz] * 4
-            ham = np.einsum('ab,cd,ef,gh->abcdefgh', *mat_list) * (-args['U'])
+        elif (self.kind == 'tEvolV'):
+            mat_list = [p.sz] * siteNum
+            ham = copy.copy(mat_list[0])
+            for i in range(1, siteNum):
+                ham = np.tensordot(ham, mat_list[i], axes=0)
+            # ham = np.einsum('ab,cd,ef,gh->abcdefgh', *mat_list) * (-args['U'])
+            ham *= (-args['U'])
             ham *= (-args['tau'] / 2) * 1.0j
-            self.gate = toExpH4(ham, expOrder)
+            self.gate = toExpH(ham, expOrder)
         # Error handling
         else:
             print('Wrong parameter for gate construction.\n')
@@ -117,13 +140,13 @@ def cleanGates(gateList):
         else:
             j += 1
 
-def makeGateList(allsites, args, xperiodic=False, yperiodic=False):
+def makeGateList(psi, args, region=range(p.args['n']), yperiodic=False):
     """
     Create time-evolution/swap gate list
 
     Parameters
     ---------------
-    allsites : list of numpy arrays
+    psi : list of numpy arrays
         MPS/MPO to be acted on
     args : dictionary
         parameter dictionary
@@ -131,12 +154,13 @@ def makeGateList(allsites, args, xperiodic=False, yperiodic=False):
         the region from which gates are constructed
     """
     gateList = []
-    siteNum = len(allsites)
+    siteNum = len(psi)
     putsite = [False] * siteNum
     swapGates = []
-    # open boundary condition
+    # open boundary condition along x
     # make plaquette gates (together with field)
     if (args['g'] != 0):
+        # i -> row; j -> column
         for i in np.arange(1, args['n'] - (args['nx']-1), 2 * args['nx'] - 1, dtype=int):
             for j in np.arange(0, args['nx'] - 1, 1, dtype=int):
                 u = i + j
@@ -144,13 +168,8 @@ def makeGateList(allsites, args, xperiodic=False, yperiodic=False):
                 r = l + 1
                 d = l + args['nx']
                 sites = [u - 1, l - 1, r - 1, d - 1]
-                # inRegion = True
-                # for site in sites:
-                #     if site in region:
-                #         pass
-                #     else:
-                #         inRegion = False
-                #         continue
+                if yperiodic == True:
+                    sites[3] -= args['real_n']
                 sites.sort()
                 # create swap gates
                 for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):
