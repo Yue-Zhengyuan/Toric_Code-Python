@@ -145,33 +145,7 @@ args={'cutoff':1.0E-6, 'bondm':256, 'scale':True}):
             gate2 = gateList[g].gate
             sites = gateList[g].sites
             gate = np.conj(gate2)
-            if len(sites) == 1:
-                # contraction
-                #
-                #       a
-                #      _|_
-                #      | |      gate = exp(+i H dt)
-                #      -|-
-                #       b
-                #      _|_
-                #  i --| |-- k
-                #      -|- 
-                #       e
-                #      _|_
-                #      | |      gate2 = exp(-i H dt)
-                #      -|-
-                #       f
-                #
-                ten_AA = np.einsum('ibek,ab->iaek',op2[sites[0]],gate, optimize=True)
-                ten_AA = np.einsum('iaek,ef->iafk',ten_AA,gate2, optimize=True)
-                op2[sites[0]] = ten_AA
-                if g < gateNum - 1:
-                    op2 = position(op2, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
-                    oldcenter = gateList[g+1].sites[0]
-                else:
-                    op2 = position(op2, 0, oldcenter=oldcenter, args=args)
-                    oldcenter = 0
-            elif len(sites) == 2:
+            if len(sites) == 2:
                 # contraction
                 #
                 #       a      c

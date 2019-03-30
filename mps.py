@@ -11,11 +11,11 @@ import sys
 import copy
 import gates
 from itertools import product
-import atexit
-import line_profiler as lp
+# import atexit
+# import line_profiler as lp
 
-profile = lp.LineProfiler()
-atexit.register(profile.print_stats)
+# profile = lp.LineProfiler()
+# atexit.register(profile.print_stats)
 
 def svd_truncate(u, s, v, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}, roundDigit=8):
     """
@@ -58,9 +58,9 @@ def svd_truncate(u, s, v, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}, ro
         s /= average
 
     # rounding
-    u = np.around(u, decimals=roundDigit)
-    s = np.around(s, decimals=roundDigit)
-    v = np.around(v, decimals=roundDigit)
+    # u = np.around(u, decimals=roundDigit)
+    # s = np.around(s, decimals=roundDigit)
+    # v = np.around(v, decimals=roundDigit)
     return u, s, v, retain_dim
 
 def position(psi, pos, oldcenter=-1, args={'cutoff':1.0E-6, 'bondm':256, 'scale':False}):

@@ -26,7 +26,7 @@ args['hz'] = 0.0
 
 # create closed string operator MPO enclosing different area(S)
 # read string from file
-with open('list.txt', 'r') as f:
+with open('newlist.txt', 'r') as f:
     line = f.readlines()
 
 # create result directory
@@ -72,7 +72,7 @@ for string_no in range(len(line)):
     # convert coordinate to unique number in 1D
     bond_list = []
     for bond in bond_on_str:
-        bond_list.append(lat.lat(bond[0:2],bond[2],args['nx']))
+        bond_list.append(lat.lat(bond[0:2],bond[2],(args['nx'],args['ny'])))
     for i in range(p.n):
         if i in bond_list:
             str_op[i][0,:,:,0] = p.sx
@@ -87,7 +87,7 @@ for string_no in range(len(line)):
 
 # quasi adiabatic evolution:
 # exp(+iH't) exp(-iHt) |psi>
-stepNum = 4
+stepNum = int(p.args['ttotal']/p.args['tau'])
 itlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
 iterlist = np.zeros(stepNum, dtype=float)
 for i in range(stepNum):
@@ -116,7 +116,7 @@ for string_no in range(len(line)):
     # convert coordinate to unique number in 1D
     bond_list = []
     for bond in bond_on_str:
-        bond_list.append(lat.lat(bond[0:2],bond[2],args['nx']))
+        bond_list.append(lat.lat(bond[0:2],bond[2],(args['nx'],args['ny'])))
     for i in range(p.n):
         if i in bond_list:
             str_op[i][0,:,:,0] = p.sx

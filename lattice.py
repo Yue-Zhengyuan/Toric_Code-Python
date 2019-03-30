@@ -21,22 +21,23 @@ def lat(site, dir, size):
         (from 0 to size - 1)
     dir : 'r'/'d'
         direction of the bond (right or downward)
-    size : int
+    size : (int, int) -> (nx, ny)
         linear size of the square lattice
     """
-    step = 2*size - 1
+    nx, ny = size[0], size[1]
+    x, y = site[0], site[1]
+    step = 2 * nx - 1
     if dir == 'r':
-        line_start = site[1] * step + 1
-        num = line_start + site[0]
+        line_start = y * step + 1
+        num = line_start + x
         num -= 1
-
     elif dir == 'd':
-        col_start = size + site[0]
-        num = col_start + site[1] * step
+        col_start = nx + x
+        num = col_start + y * step
         num -= 1
-
     else:
         sys.exit('Wrong direction of the bond')
+    
     # will add boundary check later
     return num
 
@@ -46,7 +47,7 @@ def lat_table(size):
 
     Parameters
     --------------
-    size : int
+    size : (int, int) -> (nx, ny)
         linear size of the square lattice
     """
     table = [[],[]]
