@@ -1,7 +1,7 @@
 # 
 #   main_mpo.py
 #   Toric_Code-Python
-#   apply the gates to MPO
+#   apply the gates to MPO and monitoring entanglement
 #
 #   created on Feb 18, 2019 by Yue Zhengyuan
 #
@@ -26,6 +26,7 @@ args = copy.copy(p.args)
 args['hz'] = 0.0
 # turn off vertex operator ZZZZ
 args['U'] = 0
+# svd for MPO needs scaling
 args['scale'] = True
 
 # create result directory
