@@ -10,17 +10,23 @@ import numpy as np
 
 # system parameters
 args = {'nx': 5, 'ny': 5, 
-'U': 0.0, 'g': 1.0, 
+'U': 0, 'g': 1.0, 
 'hz': 0.5, 
-'tau': 0.01, 'ttotal': 1.0, 
-'cutoff': 1.0E-6, 'bondm': 256, 'scale': False}
+'yperiodic': False,
+'tau': 0.01, 'ttotal': 0.1, 
+'cutoff': 1.0E-6, 'bondm': 1024, 'scale': False}
 
 n = 2 * (args['nx'] - 1) * args['ny']
-# Y-boundary
+# Y-non-periodic
 n -= args['nx'] - 1
 # X-non-periodic
 n += args['ny'] - 1
 args.setdefault('n', n)
+# n in case of periodic Y
+if args['yperiodic'] == True:
+    args.setdefault('real_n', n - (args['nx'] - 1))
+else:
+    args.setdefault('real_n', n)
 
 # Pauli matrices
 sx = np.array([[0.,1.], [1.,0.]], dtype=complex)

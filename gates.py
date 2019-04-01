@@ -14,6 +14,7 @@ import sys
 from itertools import product
 import para_dict as p
 import copy
+import lattice as lat
 
 # exp(x) = 1 + x +  x^2/2! + x^3/3! ..
 # = 1 + x * (1 + x/2 *(1 + x/3 * (...
@@ -21,7 +22,7 @@ import copy
 
 def toExpH(ham, order):
     """
-    Create 3/4-site time-evolution gate using the approximation
+    Create 2/3/4-site time-evolution gate using the approximation
 
         exp(x) = 1 + x + x^2/2! + x^3/3! ..
         = 1 + x * (1 + x/2 *(1 + x/3 * (...
@@ -30,17 +31,19 @@ def toExpH(ham, order):
     Parameters
     ---------------
     ham : numpy array
-        3/4-site local Hamiltonian
+        2/3/4-site local Hamiltonian
     order : int
         approximation order in the Taylor series
     """
     siteNum = int(len(np.shape(ham)) / 2)
-    if (siteNum != 3 and siteNum != 4):
+    if (siteNum != 2 and siteNum != 3 and siteNum != 4):
         sys.exit("Wrong number of sites")
 
     term = copy.copy(ham)
     mat_list = [p.iden] * siteNum
-    if siteNum == 3:
+    if siteNum == 2:
+        unit = np.einsum('ab,cd->abcd', *mat_list)
+    elif siteNum == 3:
         unit = np.einsum('ab,cd,ef->abcdef', *mat_list)
     elif siteNum == 4:
         unit = np.einsum('ab,cd,ef,gh->abcdefgh', *mat_list)
@@ -48,7 +51,9 @@ def toExpH(ham, order):
     for i in np.arange(order, 0, -1, dtype=int):
         term /= i
         gate = unit + term
-        if siteNum == 3:
+        if siteNum == 2:
+            term = np.einsum('abcd,bwdx->awcx', gate, ham)
+        elif siteNum == 3:
             term = np.einsum('abcdef,bwdxfy->awcxey', gate, ham)
         elif siteNum == 4:
             term = np.einsum('abcdefgh,bwdxfyhz->awcxeygz', gate, ham)
@@ -73,7 +78,7 @@ class gate(object):
     def __init__(self, sites, putsite, kind, args):
         # members of Gate
         self.sites = copy.copy(sites)
-        self.sites.sort()
+        # self.sites.sort()
         self.kind = kind
         siteNum = len(self.sites)
         expOrder = 50
@@ -140,7 +145,7 @@ def cleanGates(gateList):
         else:
             j += 1
 
-def makeGateList(psi, args, region=range(p.args['n']), yperiodic=False):
+def makeGateList(psi, args):
     """
     Create time-evolution/swap gate list
 
@@ -154,51 +159,70 @@ def makeGateList(psi, args, region=range(p.args['n']), yperiodic=False):
         the region from which gates are constructed
     """
     gateList = []
+    yperiodic = args['yperiodic']
     siteNum = len(psi)
     putsite = [False] * siteNum
     swapGates = []
+    reachBottom = False
     # open boundary condition along x
     # make plaquette gates (together with field)
     if (args['g'] != 0):
         # i -> row; j -> column
-        for i in np.arange(1, args['n'] - (args['nx']-1), 2 * args['nx'] - 1, dtype=int):
-            for j in np.arange(0, args['nx'] - 1, 1, dtype=int):
-                u = i + j
-                l = u + args['nx'] - 1
-                r = l + 1
-                d = l + args['nx']
-                sites = [u - 1, l - 1, r - 1, d - 1]
-                if yperiodic == True:
-                    sites[3] -= args['real_n']
-                sites.sort()
-                # create swap gates
-                for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):
-                    swapGates.append(gate([site, site + 1], putsite, 'Swap', args))
-                for site in np.arange(sites[3]-1, sites[2], -1, dtype=int):
-                    swapGates.append(gate([site, site + 1], putsite, 'Swap', args))
+        for j, i in product(range(args['ny'] - 1), range(args['nx'] - 1)):
+            u = lat.lat((  i,   j), 'r', (args['nx'], args['ny']))
+            l = lat.lat((  i,   j), 'd', (args['nx'], args['ny']))
+            r = lat.lat((i+1,   j), 'd', (args['nx'], args['ny']))
+            d = lat.lat((  i, j+1), 'r', (args['nx'], args['ny']))
+            if yperiodic == True:
+                if d >= args['real_n']:
+                    d -= args['real_n']
+                    reachBottom = True
+            sites = [u, l, r, d]
+            # print(sites)
+            # create swap gates
+            # move the first site
+            for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):
+                swapGates.append(gate([site, site + 1], putsite, 'Swap', args))
+            # move the last site
+            if ((yperiodic == False) or (yperiodic == True and reachBottom == False)):
+                for site in np.arange(sites[3], sites[2] + 1, -1, dtype=int):
+                    swapGates.append(gate([site - 1, site], putsite, 'Swap', args))
                 gateSites = [sites[1]-1, sites[1], sites[1]+1, sites[1]+2]
-                for k in range(len(swapGates)):
-                    gateList.append(swapGates[k])
-                # evolution gate (plaquette with field)
-                gateList.append(gate(gateSites, putsite, 'tEvolP', args))
-                """
-                VERY IMPORTANT:
-                the field is added AFTER swap gate has been applied
 
-                Example
-                -----------
-                Suppose a 4-site operator acts on [11,15,16,20]
-                It will become [14,15,16,17] after applying the swap gates 
-                We NOW add field to site 14,15,16,17 instead of 11,15,16,20
-                But we will set putsite[11,15,16,20] (not [14,15,16,17]) to True
-                """
-                for site in sites:
-                    putsite[site] = True
-                # put sites back to the original place
-                for k in reversed(range(len(swapGates))):
-                    gateList.append(swapGates[k])
-                swapGates.clear()
+            if (yperiodic == True and reachBottom == True):
+                for site in np.arange(sites[3], sites[2] + 1 - args['real_n'], -1, dtype=int):
+                    if site - 1 >= 0:
+                        swapGates.append(gate([site - 1, site], putsite, 'Swap', args))
+                    elif (site - 1 < 0 and site >= 0):
+                        swapGates.append(gate([site - 1 + args['real_n'], site], putsite, 'Swap', args))
+                    else:
+                        swapGates.append(gate([site - 1 + args['real_n'], site + args['real_n']], putsite, 'Swap', args))
+                gateSites = [sites[1]-1, sites[1], sites[1]+1, sites[1]+2]
+                if gateSites[3] >= args['real_n']:
+                    gateSites[3] -= args['real_n']
 
+            for k in range(len(swapGates)):
+                gateList.append(swapGates[k])
+            # evolution gate (plaquette with field)
+            gateList.append(gate(gateSites, putsite, 'tEvolP', args))
+            """
+            VERY IMPORTANT:
+            how to add magnetic field to the sites
+
+            Example
+            -----------
+            Suppose a 4-site operator acts on [11,15,16,20]
+            It will become [14,15,16,17] after applying the swap gates 
+            We NOW add field to site 14,15,16,17 instead of 11,15,16,20
+            But we will set putsite[11,15,16,20] (not [14,15,16,17]) to True
+            """
+            for site in sites:
+                putsite[site] = True
+            # put sites back to the original place
+            for k in reversed(range(len(swapGates))):
+                gateList.append(swapGates[k])
+            swapGates.clear()
+            reachBottom = False
     # vertex gates (ZZZZ) are not necessary since it commutes with 
     # plaquette (XXXX), closed string (X...X) and field (Z)
     # make vertex gates
@@ -210,13 +234,6 @@ def makeGateList(psi, args, region=range(p.args['n']), yperiodic=False):
                 r = l + 1
                 d = l + args['nx']
                 sites = [u - 1, l - 1, r - 1, d - 1]
-                # inRegion = True
-                # for site in sites:
-                #     if site in region:
-                #         pass
-                #     else:
-                #         inRegion = False
-                #         continue
                 sites.sort()
                 # create swap gates
                 for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):
