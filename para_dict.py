@@ -12,9 +12,9 @@ import numpy as np
 args = {'nx': 5, 'ny': 5, 
 'U': 0, 'g': 1.0, 
 'hz': 0.5, 
-'yperiodic': False,
+'yperiodic': True,
 'tau': 0.01, 'ttotal': 0.1, 
-'cutoff': 1.0E-6, 'bondm': 1024, 'scale': False}
+'cutoff': 1.0E-8, 'bondm': 512, 'scale': True}
 
 n = 2 * (args['nx'] - 1) * args['ny']
 # Y-non-periodic

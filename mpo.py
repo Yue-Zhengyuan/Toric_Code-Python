@@ -10,7 +10,7 @@ import numpy as np
 import sys
 import copy
 import mps
-import gates
+import para_dict as p
 from itertools import product
 
 def combinePhyLeg(op):

@@ -35,10 +35,6 @@ def svd_truncate(u, s, v, args, rounding=False):
     rounding : default False
         decide whether to round the SVD result matrices
     """
-    # get arguments
-    cutoff = args['cutoff']
-    bondm = args['bondm']
-    scale = args['scale']
     # remove zero singular values
     s = s[np.where(s[:] > 0)[0]]
     old_s2 = np.dot(s, s)
@@ -66,25 +62,33 @@ def svd_truncate(u, s, v, args, rounding=False):
         v = np.around(v, decimals=10)
     return u, s, v, retain_dim
 
-def position(psi, pos, args, oldcenter=-1, compute_entg=False):
+def position(psi, pos, args, oldcenter=-1, preserve_norm=True, compute_entg=False):
     """
     set the orthogonality center of the MPS |psi> to pos'th site
 
     Parameters
     ---------------
-    oldcenter : int (default = -1)
-        when old center < 0,            do right canonization
-        when old center > len(psi)-1,   do left canonization
+    oldcenter : int between -1 and len(psi) - 1 (default = -1)
+        when old center <= 0,            do right canonization
+        when old center == len(psi)-1,   do left canonization
+    preserve_norm : default True 
+        determine how s is combined with u,v in SVD
+        Example: if going from left to right
+            if True : u -> u * |s|; v -> s/|s| * v
+                (norm of u is unchanged)
+            if False: u -> u; v -> s * v
+            (|s| = np.norm(s))
     compute_entg : default False
-        if True, return the entanglement entropy between the two sides of the orthogonality center
+        if True: return the entanglement entropy between the two sides of the orthogonality center
     """
     phi = copy.copy(psi)
-    siteNum = len(phi)
-    if oldcenter < 0:               # initialize center to pos
+    siteNum = len(psi)
+    # determine left/right canonization range
+    if oldcenter == -1:               # initialize center to pos
         left = np.arange(0, pos, 1, dtype=int)
         right = np.arange(siteNum-1, pos, -1, dtype=int)
-    elif oldcenter >= siteNum:
-        sys.exit("Old gauge center out of range")
+    elif (oldcenter >= siteNum or oldcenter < -1):
+        sys.exit("Old center position out of range")
     else:                           # set center to pos
         if pos == oldcenter: # no need to do canonization at all
             left = []
@@ -97,8 +101,8 @@ def position(psi, pos, args, oldcenter=-1, compute_entg=False):
             right = np.arange(oldcenter, pos, -1, dtype=int)
         else:
             sys.exit("Gauge center out of range")
+
     # left canonization (0 to pos - 1)
-    # for i in range(pos):
     for i in left:
         virDim = [phi[i].shape[0], phi[i].shape[-1]]
         phyDim = phi[i].shape[1]
@@ -106,6 +110,11 @@ def position(psi, pos, args, oldcenter=-1, compute_entg=False):
         mat = np.reshape(phi[i], (virDim[0]*phyDim, virDim[1]))
         a,s,v = np.linalg.svd(mat, full_matrices=False)
         a,s,v,retain_dim = svd_truncate(a, s, v, args=args)
+        # redistribute matrix norm
+        if preserve_norm == True:
+            s_norm = np.linalg.norm(s)
+            a *= s_norm
+            s /= s_norm
         # replace mps[i] with a
         a = np.reshape(a, (virDim[0],phyDim,retain_dim))
         phi[i] = a
@@ -114,7 +123,6 @@ def position(psi, pos, args, oldcenter=-1, compute_entg=False):
         v = np.dot(mat_s, v)
         phi[i+1] = np.einsum('si,iaj->saj', v, phi[i+1], optimize=True)
     # right canonization (siteNum-1 to pos+1)
-    # for i in np.arange(siteNum-1, pos, -1, dtype=int):
     for i in right:
         virDim = [phi[i].shape[0], phi[i].shape[-1]]
         phyDim = phi[i].shape[1]
@@ -122,6 +130,11 @@ def position(psi, pos, args, oldcenter=-1, compute_entg=False):
         mat = np.reshape(phi[i], (virDim[0], phyDim*virDim[1]))
         u,s,b = np.linalg.svd(mat, full_matrices=False)
         u,s,b,retain_dim = svd_truncate(u, s, b, args=args)
+        # redistribute matrix norm
+        if preserve_norm == True:
+            s_norm = np.linalg.norm(s)
+            b *= s_norm
+            s /= s_norm
         # replace mps[i] with b
         b = np.reshape(b, (retain_dim,phyDim,virDim[1]))
         phi[i] = b
@@ -132,7 +145,8 @@ def position(psi, pos, args, oldcenter=-1, compute_entg=False):
     # compute entanglement entropy
     if compute_entg == True:
         # do svd for the matrix at the orthogonality center
-        s = np.linalg.svd(phi[pos], full_matrices=False, compute_uv=False)
+        mat = np.reshape(phi[pos], (virDim[0]*phyDim, virDim[1]))
+        s = np.linalg.svd(mat, full_matrices=False, compute_uv=False)
         # normalize spectrum: sum(s**2) = 1
         s2 = s**2
         s2 = s2 / np.sum(s2)
@@ -148,27 +162,25 @@ def normalize(psi, args):
     """
     phi = copy.copy(psi)
     pos = len(psi) - 1    # left canonical
-    phi = position(phi, pos, args=args)
+    phi = position(phi, pos, args, preserve_norm=True)
     norm = np.tensordot(phi[pos], np.conj(phi[pos]), ([0,1,2],[0,1,2]))
     norm = np.sqrt(norm)
     phi[pos] /= norm
     return phi
 
-def svd_nsite(n, tensor, dir, args):
+def svd_nsite(n, tensor, dir, args, preserve_norm=False):
     """
-    Do SVD to decomposite one large tensor into n site tensors of an MPS
-    (u, v are made "positive" in terms of their eigenvalue)
+    Do SVD to convert one large tensor into an n-site MPS
     
     Parameters
     ---------------
-    n : int
-        number of site tensors to be produces
-    tensor : numpy array
-        the 2-site tensor to be decomposed
     dir: 'Fromleft'/'Fromright'
         if dir == 'left'/'right', the last/first of the n sites will be orthogonality center of the n tensors
     args : dict
         parameters controlling SVD
+    preserve_norm : default True 
+        determine how s is combined with u,v in SVD
+        if True, uniformly distribute the norm of tensor among the resulting matrices
     """
     if (len(tensor.shape) != n + 2):
         sys.exit('Wrong dimension of input tensor')
@@ -184,6 +196,11 @@ def svd_nsite(n, tensor, dir, args):
             virDim[1] * np.prod(phyDim[i+1 : len(phyDim)])))
             u,s,v = np.linalg.svd(mat, full_matrices=False)
             u,s,v,new_retain_dim = svd_truncate(u, s, v, args=args)
+            # redistribute matrix norm
+            if preserve_norm == True:
+                scale = np.linalg.norm(s) ** (1 / (n - i))
+                u *= scale
+                s /= scale
             mat_s = np.diag(s)
             v = np.dot(mat_s, v)
             u = np.reshape(u, (old_retain_dim, phyDim[i], new_retain_dim))
@@ -199,6 +216,11 @@ def svd_nsite(n, tensor, dir, args):
             phyDim[i] * old_retain_dim))
             u,s,v = np.linalg.svd(mat, full_matrices=False)
             u,s,v,new_retain_dim = svd_truncate(u, s, v, args=args)
+            # redistribute matrix norm
+            if preserve_norm == True:
+                scale = np.linalg.norm(s) ** (1 / (i + 1))
+                v *= scale
+                s /= scale
             mat_s = np.diag(s)
             u = np.dot(u, mat_s)
             v = np.reshape(v, (new_retain_dim, phyDim[i], old_retain_dim))
@@ -331,90 +353,92 @@ def gateTEvol(psi, gateList, ttotal, tstep, args):
     if (np.abs(nt*tstep-ttotal) > 1.0E-9): 
         sys.exit("Timestep not commensurate with total time")
     gateNum = len(gateList)
-
+    periodic = args['yperiodic']
     phi = position(phi, gateList[0].sites[0], args=args)
     oldcenter = 0
-    for tt in range(nt):
-        for g in range(gateNum):
-            gate = gateList[g].gate
-            sites = gateList[g].sites
-            if len(sites) == 2:
-                # contraction
-                #
-                #       a      c
-                #      _|______|_
-                #      |        |
-                #      -|------|-
-                #       b      d
-                #      _|_    _|_
-                #  i --| |-k--| |--j
-                #      ---    ---
-                #
-                ten_AA = np.einsum('ibk,kdj,abcd->iacj',phi[sites[0]],phi[sites[1]],gate, optimize=True)
-                # do svd to restore 2 sites
-                if g < gateNum - 1:
-                    if gateList[g+1].sites[0] >= gateList[g].sites[-1]:
-                        result = svd_nsite(2, ten_AA, 'Fromleft', args=args)
-                        for i in range(2):
-                            phi[sites[i]] = result[i]
-                        oldcenter = sites[-1]
-                        phi = position(phi, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
-                        oldcenter = gateList[g+1].sites[0]
-                    else:
-                        result = svd_nsite(2, ten_AA, args=args, dir='Fromright')
-                        for i in range(2):
-                            phi[sites[i]] = result[i]
-                        oldcenter = sites[0]
-                        phi = position(phi, gateList[g+1].sites[-1], oldcenter=oldcenter, args=args)
-                        oldcenter = gateList[g+1].sites[-1]
+    for tt, g in product(range(nt), range(gateNum)):
+        gate = gateList[g].gate
+        sites = gateList[g].sites
+        if len(sites) == 2:
+            # contraction
+            #
+            #       a      c
+            #      _|______|_
+            #      |        |
+            #      -|------|-
+            #       b      d
+            #      _|_    _|_
+            #  i --| |-k--| |--j
+            #      ---    ---
+            #
+            ten_AA = np.einsum('ibk,kdj,abcd->iacj',
+            phi[sites[0]], phi[sites[1]], gate, optimize=True)
+            # do svd to restore 2 sites
+            if g < gateNum - 1:
+                if gateList[g+1].sites[0] >= gateList[g].sites[-1]:
+                    result = svd_nsite(2, ten_AA, 'Fromleft', args=args)
+                    for i in range(2):
+                        phi[sites[i]] = result[i]
+                    oldcenter = sites[-1]
+                    phi = position(phi, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
+                    oldcenter = gateList[g+1].sites[0]
                 else:
-                    result = svd_nsite(2, ten_AA, 'Fromright', args=args)
+                    result = svd_nsite(2, ten_AA, args=args, dir='Fromright')
                     for i in range(2):
                         phi[sites[i]] = result[i]
                     oldcenter = sites[0]
-                    phi = position(phi, 0, oldcenter=oldcenter, args=args)
-                    oldcenter = 0
-            elif len(sites) == 4:
-                # contraction
-                #
-                #       a      c      e      g
-                #      _|______|______|______|_
-                #      |                      |
-                #      -|------|------|------|-
-                #       b      d      f      h
-                #      _|_    _|_    _|_    _|_
-                #  i --| |-j--| |--k-| |-l--| |-- m
-                #      ---    ---    ---    ---
-                #
-                ten_AAAA = np.einsum('ibj,jdk,kfl,lhm->ibdfhm',phi[sites[0]],phi[sites[1]],phi[sites[2]],phi[sites[3]], optimize=True)
-                ten_AAAA = np.einsum('ibdfhm,abcdefgh->iacegm',ten_AAAA,gate, optimize=True)
-                # do svd to restore 4 sites
-                if g < gateNum:
-                    if gateList[g+1].sites[0] >= gateList[g].sites[-1]:
-                        result = svd_nsite(4, ten_AAAA, 'Fromleft', args=args)
-                        for i in range(4):
-                            phi[sites[i]] = result[i]
-                        oldcenter = sites[-1]
-                        phi = position(phi, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
-                        oldcenter = gateList[g+1].sites[0]
-                    else:
-                        result = svd_nsite(4, ten_AAAA, 'Fromright',args=args)
-                        for i in range(4):
-                            phi[sites[i]] = result[i]
-                        oldcenter = sites[0]
-                        phi = position(phi, gateList[g+1].sites[-1], oldcenter=oldcenter, args=args)
-                        oldcenter = gateList[g+1].sites[-1]
+                    phi = position(phi, gateList[g+1].sites[-1], oldcenter=oldcenter, args=args)
+                    oldcenter = gateList[g+1].sites[-1]
+            else:
+                result = svd_nsite(2, ten_AA, 'Fromright', args=args)
+                for i in range(2):
+                    phi[sites[i]] = result[i]
+                oldcenter = sites[0]
+                phi = position(phi, 0, oldcenter=oldcenter, args=args)
+                oldcenter = 0
+        elif len(sites) == 4:
+            # contraction
+            #
+            #       a      c      e      g
+            #      _|______|______|______|_
+            #      |                      |
+            #      -|------|------|------|-
+            #       b      d      f      h
+            #      _|_    _|_    _|_    _|_
+            #  i --| |-j--| |--k-| |-l--| |-- m
+            #      ---    ---    ---    ---
+            #
+            ten_AAAA = np.einsum('ibj,jdk,kfl,lhm->ibdfhm',
+            phi[sites[0]],phi[sites[1]],phi[sites[2]],phi[sites[3]], optimize=True)
+            ten_AAAA = np.einsum('ibdfhm,abcdefgh->iacegm',
+            ten_AAAA, gate, optimize=True)
+            # do svd to restore 4 sites
+            if g < gateNum:
+                if gateList[g+1].sites[0] >= gateList[g].sites[-1]:
+                    result = svd_nsite(4, ten_AAAA, 'Fromleft', args=args)
+                    for i in range(4):
+                        phi[sites[i]] = result[i]
+                    oldcenter = sites[-1]
+                    phi = position(phi, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
+                    oldcenter = gateList[g+1].sites[0]
                 else:
-                    result = svd_nsite(4, ten_AAAA, 'Fromright', args=args)
+                    result = svd_nsite(4, ten_AAAA, 'Fromright',args=args)
                     for i in range(4):
                         phi[sites[i]] = result[i]
                     oldcenter = sites[0]
-                    phi = position(phi, 0, oldcenter=oldcenter, args=args)
-                    oldcenter = 0
-            # error handling
+                    phi = position(phi, gateList[g+1].sites[-1], oldcenter=oldcenter, args=args)
+                    oldcenter = gateList[g+1].sites[-1]
             else:
-                print('Wrong number of sites')
-                sys.exit()
+                result = svd_nsite(4, ten_AAAA, 'Fromright', args=args)
+                for i in range(4):
+                    phi[sites[i]] = result[i]
+                oldcenter = sites[0]
+                phi = position(phi, 0, oldcenter=oldcenter, args=args)
+                oldcenter = 0
+        # error handling
+        else:
+            print('Wrong number of sites')
+            sys.exit()
     # return a guaged and normalized MPS |phi>
     phi = normalize(phi, args=args)
     return phi
@@ -443,9 +467,8 @@ def sum(psi1, psi2, args, compress="svd"):
 
     # special treatment is needed at the first and the last site
     # for open boundary condition
-
-    # first site
     if (compress == None or compress == "svd"):
+        # first site
         i = 0
         virDim1 = [psi1[i].shape[0], psi1[i].shape[-1]]
         virDim2 = [psi2[i].shape[0], psi2[i].shape[-1]]
@@ -536,7 +559,7 @@ def save_to_file(psi, filename):
                     f.write(str(psi[i].shape[leg]) + '\t')
                 else:
                     f.write(str(psi[i].shape[leg]) + '\n')
-            cond = np.where(np.abs(psi[i]) > 1.0E-8)
+            cond = np.where(np.abs(psi[i]) > 1.0E-10)
             index = np.transpose(cond)
             elem = psi[i][cond]
             for j in range(len(index)):
