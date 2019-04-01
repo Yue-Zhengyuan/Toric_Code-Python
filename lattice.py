@@ -3,7 +3,7 @@
 #   Toric_Code-Python
 #   convert 2D square lattice to 1D numbering
 #
-#   created on Feb 16, 2019 by Yue Zhengyuan
+#   created on Mar 23, 2019 by Yue Zhengyuan
 #
 
 import numpy as np
@@ -37,45 +37,79 @@ def lat(site, dir, size):
         num -= 1
     else:
         sys.exit('Wrong direction of the bond')
-    
-    # will add boundary check later
     return num
 
-def lat_table(size):
+def site(coord, size):
     """
-    create numbering to square lattice bonds mapping table
+    numbering the square lattice sites
 
     Parameters
     --------------
+    coord : (x, y)
+        (x, y) coordinate of the site
     size : (int, int) -> (nx, ny)
         linear size of the square lattice
     """
-    table = [[],[]]
-    for j in range(size):
-        for i in range(size):
-            if j != size-1:
-                table[0].append((i,j,'d'))
-                table[1].append(lat((i,j), 'd', size))
-            if i != size-1:
-                table[0].append((i,j,'r'))
-                table[1].append(lat((i,j), 'r', size))
-    
-    return table
+    return coord[1] * size[0] + coord[0]
 
-def inv_lat(num, table):
+def inv_site(num, size):
     """
-    convert bond number to coordinate according to 
-    the conversion table created by lat_table
+    convert site number to coordinate
 
     Parameters
     --------------
     num : int
-        number of the bond
-    table : list
-        number - coordinate conversion table
+        number of the site
+    size : (int, int) -> (nx, ny)
+        linear size of the square lattice
     """
-    index = table[1].index(num)
-    return table[0][index]
+    y = int(num / size[0])
+    x = num % size[0]
+    return (x, y)
+
+def sitesOnBond(bond, size):
+    """
+    Return the number of sites connected by the bond
+
+    Parameters
+    -----------------
+    bond: (x, y, 'r/d')
+        the bond in question
+    size : (int, int) -> (nx, ny)
+        linear size of the square lattice
+    """
+    x, y = bond[0], bond[1]
+    if bond[2] == 'r':
+        sites = [(x,y), (x+1,y)]
+    elif bond[2] == 'd':
+        sites = [(x,y), (x,y+1)]
+    return site(sites[0],size), site(sites[1],size)
+
+def makeBondList(size):
+    """
+    create bond list in the square lattice
+
+    Parameters
+    --------------
+    size : (int, int)
+        linear size of the square lattice
+    """
+    # bondlist format
+    # (0,1,2) -> (x,y,'r'/'d')
+    # 3 -> bond number
+    # 4,5 -> number of the two sites connected by the bond
+    bondlist = []
+    for y in range(size[1]):
+        for x in range(size[0]):
+            if y != size[1]-1:
+                site1, site2 = sitesOnBond((x,y,'d'), size)
+                bondlist.append((x, y, 'd', lat((x,y),'d',size), site1, site2))
+            if x != size[0]-1:
+                site1, site2 = sitesOnBond((x,y,'r'), size)
+                bondlist.append((x, y, 'r', lat((x,y),'r',size), site1, site2))
+    bondlist = np.asarray(bondlist, 
+    dtype=[('x', 'i4'), ('y', 'i4'), ('dir', 'U1'), ('bnum', 'i4'), ('s1', 'i4'), ('s2', 'i4')])
+    return bondlist
 
 def selectRegion(string, width, size):
     """
@@ -87,7 +121,7 @@ def selectRegion(string, width, size):
         bonds on the string operator
     width : int
         width of the spreading from string operator
-    size : int
+    size : (int, int)
         linear size of the lattice system
     """
     region = []
@@ -100,7 +134,7 @@ def selectRegion(string, width, size):
             # check whether this is a boundary bond
             if x == 0:              # on the left boundary; add right plaquette only
                 left = []
-            elif x == size  - 1:    # on the right boundary; add left plaquette only
+            elif x == size[0]  - 1:    # on the right boundary; add left plaquette only
                 right = []                
             for newbond in left: 
                 region.append(lat(newbond[0:2], newbond[2], size))
@@ -112,7 +146,7 @@ def selectRegion(string, width, size):
             below = [(x,y,'r'),(x,y,'d'),(x+1,y,'d'),(x,y+1,'r')]
             if y == 0:          # on the upper boundary; add plaquette below only
                 above = []
-            if y == size - 1:    # on the lower boundary; add plaquette above only
+            if y == size[1] - 1:    # on the lower boundary; add plaquette above only
                 below = []                
             for newbond in above: 
                 region.append(lat(newbond[0:2], newbond[2], size))
