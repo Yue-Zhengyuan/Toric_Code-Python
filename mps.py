@@ -9,7 +9,7 @@
 import numpy as np
 import sys
 import copy
-import gates
+import para_dict as p
 from itertools import product
 # import atexit
 # import line_profiler as lp
@@ -17,7 +17,7 @@ from itertools import product
 # profile = lp.LineProfiler()
 # atexit.register(profile.print_stats)
 
-def svd_truncate(u, s, v, args, roundDigit=8):
+def svd_truncate(u, s, v, args, rounding=False):
     """
     Truncate and round SVD results
 
@@ -32,8 +32,8 @@ def svd_truncate(u, s, v, args, roundDigit=8):
         np.linalg.svd results
     args : dict
         parameters controlling SVD
-    roundDigit : int (default: 8)
-        Number of decimal places to round to
+    rounding : default False
+        decide whether to round the SVD result matrices
     """
     # get arguments
     cutoff = args['cutoff']
@@ -41,26 +41,29 @@ def svd_truncate(u, s, v, args, roundDigit=8):
     scale = args['scale']
     # remove zero singular values
     s = s[np.where(s[:] > 0)[0]]
-    s_sum = np.dot(s, s)
+    old_s2 = np.dot(s, s)
+    old_snorm = np.linalg.norm(s)
     trunc = 0
     origin_dim = s.shape[0]
     remove_dim = 0
-    while trunc/s_sum < cutoff:
+    while trunc/old_s2 < args['cutoff']:
         remove_dim += 1
-        trunc += s[-remove_dim]**2
+        trunc += s[-remove_dim] * s[-remove_dim]
     remove_dim -= 1
-    retain_dim = min(bondm, origin_dim - remove_dim)
+    retain_dim = min(args['bondm'], origin_dim - remove_dim)
     s = s[0:retain_dim]
     u = u[:, 0:retain_dim]
     v = v[0:retain_dim, :]
-    if scale == True:
-        average = np.average(s)
-        s /= average
-
+    # after truncating, scale the singular values so that
+    # sum(s**2) is unchanged
+    if args['scale'] == True:
+        new_snorm = np.linalg.norm(s)
+        s *= old_snorm / new_snorm
     # rounding
-    # u = np.around(u, decimals=roundDigit)
-    # s = np.around(s, decimals=roundDigit)
-    # v = np.around(v, decimals=roundDigit)
+    if rounding == True:
+        u = np.around(u, decimals=10)
+        s = np.around(s, decimals=10)
+        v = np.around(v, decimals=10)
     return u, s, v, retain_dim
 
 def position(psi, pos, args, oldcenter=-1, compute_entg=False):
