@@ -168,7 +168,7 @@ def normalize(psi, args):
     phi[pos] /= norm
     return phi
 
-def svd_nsite(n, tensor, dir, args, preserve_norm=False):
+def svd_nsite(n, tensor, dir, args, preserve_norm=True):
     """
     Do SVD to convert one large tensor into an n-site MPS
     
