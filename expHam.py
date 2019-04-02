@@ -9,6 +9,7 @@
 import numpy as np
 import sys
 import copy
+import lattice as lat
 import mps
 import mpo
 import para_dict as p
@@ -23,23 +24,23 @@ def Ham_builder(args):
     # plaquette (XXXX)
     if (args['g'] != 0):
         # i -> row; j -> column
-        for i in np.arange(1, args['n'] - (args['nx']-1), 2 * args['nx'] - 1, dtype=int):
-            for j in np.arange(0, args['nx'] - 1, 1, dtype=int):
-                u = i + j
-                l = u + args['nx'] - 1
-                r = l + 1
-                d = l + args['nx']
-                sites = [u - 1, l - 1, r - 1, d - 1]
-                if yperiodic == True:
-                    sites[3] -= args['real_n']
-                sites.sort()
-                term = copy.copy(iden)
-                for site in sites:
-                    term[site] = np.reshape(p.sx * (-g), (1,2,2,1))
-                if ham == []: # initialize
-                    ham = copy.copy(term)
-                else:
-                    ham = mpo.sum(ham, term, args, compress=None)
+        for j, i in product(range(args['ny'] - 1), range(args['nx'] - 1)):
+            u = lat.lat((  i,   j), 'r', (args['nx'], args['ny']))
+            l = lat.lat((  i,   j), 'd', (args['nx'], args['ny']))
+            r = lat.lat((i+1,   j), 'd', (args['nx'], args['ny']))
+            d = lat.lat((  i, j+1), 'r', (args['nx'], args['ny']))
+            if yperiodic == True:
+                if d >= args['real_n']:
+                    d -= args['real_n']
+                    reachBottom = True
+            sites = [u, l, r, d]
+            term = copy.copy(iden)
+            for site in sites:
+                term[site] = np.reshape(p.sx * (-g), (1,2,2,1))
+            if ham == []: # initialize
+                ham = copy.copy(term)
+            else:
+                ham = mpo.sum(ham, term, args, compress=None)
 
     # vertex (ZZZZ)
     if (args['U'] != 0):
@@ -50,13 +51,6 @@ def Ham_builder(args):
                 r = l + 1
                 d = l + args['nx']
                 sites = [u - 1, l - 1, r - 1, d - 1]
-                # inRegion = True
-                # for site in sites:
-                #     if site in region:
-                #         pass
-                #     else:
-                #         inRegion = False
-                #         continue
                 sites.sort()
                 term = copy.copy(iden)
                 for site in sites:
