@@ -51,10 +51,14 @@ def gnd_state_builder(args):
     # ---------------------------------------------------
 
     # construct MPS from PEPS
-    nx = args['nx']
+    nx, ny = args['nx'], args['ny']
     result = []
     i = 0
-    for row in range(2 * nx - 1):
+    if args['yperiodic'] == True:
+        row_range = range(2 * (ny - 1))
+    else:
+        row_range = range(2 * ny - 1)
+    for row in row_range:
         if (row == 0 and args['yperiodic'] == False):
             result.append(corner)
             for j in np.arange(1, nx, 1, dtype=int):

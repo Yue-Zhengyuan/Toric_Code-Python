@@ -61,14 +61,18 @@ def position(op, pos, args, oldcenter=-1, compute_entg=False):
     
     Parameters
     ----------------
-    op : list of numpy arrays
-        the MPO to be acted on
-    pos : int
-        the position of the orthogonality center
-    cutoff : float
-        largest value of s_max/s_min
-    bondm : int
-        largest virtual bond dimension allowed
+    oldcenter : int between -1 and len(psi) - 1 (default = -1)
+        when old center <= 0,            do right canonization
+        when old center == len(psi)-1,   do left canonization
+    preserve_norm : default True 
+        determine how s is combined with u,v in SVD
+        Example: if going from left to right
+            if True : u -> u * |s|; v -> s/|s| * v
+                (norm of u is unchanged)
+            if False: u -> u; v -> s * v
+            (|s| = np.norm(s))
+    compute_entg : default False
+        if True: return the entanglement entropy between the two sides of the orthogonality center
     """
     op2 = copy.copy(op)
     allPhyDim = getPhyDim(op2)
@@ -84,16 +88,13 @@ def svd_nsite(n, tensor, dir, args):
     
     Parameters
     ---------------
-    n : int
-        number of site tensors to be produces
-    tensor : numpy array
-        the 2-site tensor to be decomposed
-    cutoff : float
-        largest value of s_max/s_min
-    bondm : int
-        largest virtual bond dimension allowed
-    dir: 'Fromleft'(default)/'Fromright'
-        if dir == 'left'/'right', the last/first of the n sites will be orthogonality center
+    dir: 'Fromleft'/'Fromright'
+        if dir == 'Fromleft'/'Fromright', the last/first of the n sites will be orthogonality center of the n tensors
+    args : dict
+        parameters controlling SVD
+    preserve_norm : default True 
+        determine how s is combined with u,v in SVD
+        if True, uniformly distribute the norm of tensor among the resulting matrices
     """
     if (len(tensor.shape) != 2*n + 2):
         sys.exit('Wrong dimension of input tensor')
@@ -273,12 +274,6 @@ def sum(op1, op2, args, compress="svd"):
     else: 
         sys.exit("Wrong compress parameter")
     return result
-
-# def multMPO(op1, op2, args, bondm=10, compress="var"):
-    """
-    Calculate op1 * op2 using variational compression method
-    """
-
 
 def printdata(op):
     mps.printdata(op)

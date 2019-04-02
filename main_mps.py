@@ -39,7 +39,6 @@ os.makedirs(result_dir, exist_ok=True)
 # save parameters
 with open(result_dir + '/parameters.txt', 'w+') as file:
     file.write(json.dumps(p.args))  # use json.loads to do the reverse
-    file.write("\nGauging turned off\n")
     
 # create Toric Code ground state |psi>
 psi = gnd_state.gnd_state_builder(args)
@@ -66,18 +65,13 @@ for string_no in range(len(line)):
 # for string_no in [20,21]:
     bond_on_str, str_area = lat.convertToStrOp(ast.literal_eval(line[string_no]))
     # create string operator
-    str_op = []
-    for i in range(args['n']):
-        str_op.append(np.zeros((1,2,2,1), dtype=complex))
+    str_op = [np.reshape(p.iden, (1,2,2,1))] * args['real_n']
     # convert coordinate to unique number in 1D
     bond_list = []
     for bond in bond_on_str:
-        bond_list.append(lat.lat(bond[0:2],bond[2],(args['nx'],args['ny'])))
-    for i in range(p.n):
-        if i in bond_list:
-            str_op[i][0,:,:,0] = p.sx
-        else:
-            str_op[i][0,:,:,0] = p.iden
+        bond_list.append(lat.lat(bond[0:2], bond[2], (args['nx'],args['ny'])))
+    for i in bond_list:
+        str_op[i][0,:,:,0] = p.sx
     result = mps.matElem(psi, str_op, psi)
     with open(result_dir + '/parameters.txt', 'a+') as file:
         file.write('\n')

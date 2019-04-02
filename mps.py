@@ -162,7 +162,7 @@ def normalize(psi, args):
     """
     phi = copy.copy(psi)
     pos = len(psi) - 1    # left canonical
-    phi = position(phi, pos, args, preserve_norm=True)
+    phi = position(phi, pos, args, preserve_norm=False)
     norm = np.tensordot(phi[pos], np.conj(phi[pos]), ([0,1,2],[0,1,2]))
     norm = np.sqrt(norm)
     phi[pos] /= norm
@@ -175,7 +175,7 @@ def svd_nsite(n, tensor, dir, args, preserve_norm=True):
     Parameters
     ---------------
     dir: 'Fromleft'/'Fromright'
-        if dir == 'left'/'right', the last/first of the n sites will be orthogonality center of the n tensors
+        if dir == 'Fromleft'/'Fromright', the last/first of the n sites will be orthogonality center of the n tensors
     args : dict
         parameters controlling SVD
     preserve_norm : default True 
