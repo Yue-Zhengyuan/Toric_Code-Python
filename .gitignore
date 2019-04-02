@@ -10,6 +10,7 @@ test*.py
 test.py
 test*/
 figures/
+*list*
 
 ### Backups ###
 old_versions/
