@@ -65,13 +65,15 @@ for string_no in range(len(line)):
 # for string_no in [20,21]:
     bond_on_str, str_area = lat.convertToStrOp(ast.literal_eval(line[string_no]))
     # create string operator
-    str_op = [np.reshape(p.iden, (1,2,2,1))] * args['real_n']
+    str_op = []
+    for i in range(args['real_n']):
+        str_op.append(np.reshape(p.iden, (1,2,2,1)))
     # convert coordinate to unique number in 1D
     bond_list = []
     for bond in bond_on_str:
         bond_list.append(lat.lat(bond[0:2], bond[2], (args['nx'],args['ny'])))
     for i in bond_list:
-        str_op[i][0,:,:,0] = p.sx
+        str_op[i] = np.reshape(p.sx, (1,2,2,1))
     result = mps.matElem(psi, str_op, psi)
     with open(result_dir + '/parameters.txt', 'a+') as file:
         file.write('\n')

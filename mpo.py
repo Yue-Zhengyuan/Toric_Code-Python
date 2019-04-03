@@ -144,6 +144,8 @@ def gateTEvol(op, gateList, ttotal, tstep, args):
     for tt, g in product(range(nt), range(gateNum)):
         gate2 = gateList[g].gate
         sites = gateList[g].sites
+        # if gateList[g].sites[-1] < gateList[g].sites[0]:
+        #     print("debug\n")
         gate = np.conj(gate2)
         if len(sites) == 2:
             # contraction
@@ -171,21 +173,33 @@ def gateTEvol(op, gateList, ttotal, tstep, args):
                     result = svd_nsite(2, ten_AA, 'Fromleft', args=args)
                     for i in range(2):
                         op2[sites[i]] = result[i]
-                    oldcenter = sites[-1]
+                    # gate crosses boundary
+                    if gateList[g].sites[-1] < gateList[g].sites[0]:
+                        oldcenter = -1 # reset orthogonality center
+                    else:
+                        oldcenter = sites[-1]
                     op2 = position(op2, gateList[g+1].sites[0], args, oldcenter=oldcenter)
                     oldcenter = gateList[g+1].sites[0]
                 else:
                     result = svd_nsite(2, ten_AA, args=args, dir='Fromright')
                     for i in range(2):
                         op2[sites[i]] = result[i]
-                    oldcenter = sites[0]
+                    # gate crosses boundary
+                    if gateList[g].sites[-1] < gateList[g].sites[0]:
+                        oldcenter = -1 # reset orthogonality center
+                    else:
+                        oldcenter = sites[0]
                     op2 = position(op2, gateList[g+1].sites[-1], args, oldcenter=oldcenter)
                     oldcenter = gateList[g+1].sites[-1]
             else:
                 result = svd_nsite(2, ten_AA, 'Fromright', args=args)
                 for i in range(2):
                     op2[sites[i]] = result[i]
-                oldcenter = sites[0]
+                # gate crosses boundary
+                if gateList[g].sites[-1] < gateList[g].sites[0]:
+                    oldcenter = -1 # reset orthogonality center
+                else:
+                    oldcenter = sites[0]
                 op2 = position(op2, 0, args, oldcenter=oldcenter)
                 oldcenter = 0
         elif len(sites) == 4:
@@ -216,21 +230,33 @@ def gateTEvol(op, gateList, ttotal, tstep, args):
                     result = svd_nsite(4, ten_AAAA, 'Fromleft', args=args)
                     for i in range(4):
                         op2[sites[i]] = result[i]
-                    oldcenter = sites[-1]
+                    # gate crosses boundary
+                    if gateList[g].sites[-1] < gateList[g].sites[0]:
+                        oldcenter = -1 # reset orthogonality center
+                    else:
+                        oldcenter = sites[-1]
                     op2 = position(op2, gateList[g+1].sites[0], args, oldcenter=oldcenter)
                     oldcenter = gateList[g+1].sites[0]
                 else:
                     result = svd_nsite(4, ten_AAAA, 'Fromright',args=args)
                     for i in range(4):
                         op2[sites[i]] = result[i]
-                    oldcenter = sites[0]
+                    # gate crosses boundary
+                    if gateList[g].sites[-1] < gateList[g].sites[0]:
+                        oldcenter = -1 # reset orthogonality center
+                    else:
+                        oldcenter = sites[0]
                     op2 = position(op2, gateList[g+1].sites[-1], args, oldcenter=oldcenter)
                     oldcenter = gateList[g+1].sites[-1]
             else:
                 result = svd_nsite(4, ten_AAAA, 'Fromright', args=args)
                 for i in range(4):
                     op2[sites[i]] = result[i]
-                oldcenter = sites[0]
+                # gate crosses boundary
+                    if gateList[g].sites[-1] < gateList[g].sites[0]:
+                        oldcenter = -1 # reset orthogonality center
+                    else:
+                        oldcenter = sites[0]
                 op2 = position(op2, 0, args, oldcenter=oldcenter)
                 oldcenter = 0
         # error handling

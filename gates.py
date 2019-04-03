@@ -78,6 +78,7 @@ class gate(object):
     def __init__(self, sites, putsite, kind, args):
         # members of Gate
         self.sites = copy.copy(sites)
+        # the sites are ordered to take PBC into account
         # self.sites.sort()
         self.kind = kind
         siteNum = len(self.sites)

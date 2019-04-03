@@ -17,7 +17,7 @@ from itertools import product
 # profile = lp.LineProfiler()
 # atexit.register(profile.print_stats)
 
-def svd_truncate(u, s, v, args, rounding=False):
+def svd_truncate(u, s, v, args, normalize=True, rounding=False):
     """
     Truncate and round SVD results
 
@@ -32,6 +32,8 @@ def svd_truncate(u, s, v, args, rounding=False):
         np.linalg.svd results
     args : dict
         parameters controlling SVD
+    normalize : default True
+        rescale the remaining singular value so that sum(s**2) is unchanged
     rounding : default False
         decide whether to round the SVD result matrices
     """
@@ -52,7 +54,7 @@ def svd_truncate(u, s, v, args, rounding=False):
     v = v[0:retain_dim, :]
     # after truncating, scale the singular values so that
     # sum(s**2) is unchanged
-    if args['scale'] == True:
+    if normalize == True:
         new_snorm = np.linalg.norm(s)
         s *= old_snorm / new_snorm
     # rounding
@@ -353,9 +355,11 @@ def gateTEvol(psi, gateList, ttotal, tstep, args):
     if (np.abs(nt*tstep-ttotal) > 1.0E-9): 
         sys.exit("Timestep not commensurate with total time")
     gateNum = len(gateList)
-    periodic = args['yperiodic']
+    # periodic = args['yperiodic']
     phi = position(phi, gateList[0].sites[0], args=args)
     oldcenter = 0
+    # if the acting range of the gate crosses the boundary
+    # the orthogonality center of the MPS should be reset
     for tt, g in product(range(nt), range(gateNum)):
         gate = gateList[g].gate
         sites = gateList[g].sites
@@ -379,21 +383,33 @@ def gateTEvol(psi, gateList, ttotal, tstep, args):
                     result = svd_nsite(2, ten_AA, 'Fromleft', args=args)
                     for i in range(2):
                         phi[sites[i]] = result[i]
-                    oldcenter = sites[-1]
+                    # gate crosses boundary
+                    if gateList[g].sites[-1] < gateList[g].sites[0]:
+                        oldcenter = -1 # reset orthogonality center
+                    else:
+                        oldcenter = sites[-1]
                     phi = position(phi, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
                     oldcenter = gateList[g+1].sites[0]
                 else:
                     result = svd_nsite(2, ten_AA, args=args, dir='Fromright')
                     for i in range(2):
                         phi[sites[i]] = result[i]
-                    oldcenter = sites[0]
+                    # gate crosses boundary
+                    if gateList[g].sites[-1] < gateList[g].sites[0]:
+                        oldcenter = -1 # reset orthogonality center
+                    else:
+                        oldcenter = sites[0]
                     phi = position(phi, gateList[g+1].sites[-1], oldcenter=oldcenter, args=args)
                     oldcenter = gateList[g+1].sites[-1]
             else:
                 result = svd_nsite(2, ten_AA, 'Fromright', args=args)
                 for i in range(2):
                     phi[sites[i]] = result[i]
-                oldcenter = sites[0]
+                # gate crosses boundary
+                if gateList[g].sites[-1] < gateList[g].sites[0]:
+                    oldcenter = -1 # reset orthogonality center
+                else:
+                    oldcenter = sites[0]
                 phi = position(phi, 0, oldcenter=oldcenter, args=args)
                 oldcenter = 0
         elif len(sites) == 4:
@@ -418,21 +434,33 @@ def gateTEvol(psi, gateList, ttotal, tstep, args):
                     result = svd_nsite(4, ten_AAAA, 'Fromleft', args=args)
                     for i in range(4):
                         phi[sites[i]] = result[i]
-                    oldcenter = sites[-1]
+                    # gate crosses boundary
+                    if gateList[g].sites[-1] < gateList[g].sites[0]:
+                        oldcenter = -1 # reset orthogonality center
+                    else:
+                        oldcenter = sites[-1]
                     phi = position(phi, gateList[g+1].sites[0], oldcenter=oldcenter, args=args)
                     oldcenter = gateList[g+1].sites[0]
                 else:
                     result = svd_nsite(4, ten_AAAA, 'Fromright',args=args)
                     for i in range(4):
                         phi[sites[i]] = result[i]
-                    oldcenter = sites[0]
+                    # gate crosses boundary
+                    if gateList[g].sites[-1] < gateList[g].sites[0]:
+                        oldcenter = -1 # reset orthogonality center
+                    else:
+                        oldcenter = sites[0]
                     phi = position(phi, gateList[g+1].sites[-1], oldcenter=oldcenter, args=args)
                     oldcenter = gateList[g+1].sites[-1]
             else:
                 result = svd_nsite(4, ten_AAAA, 'Fromright', args=args)
                 for i in range(4):
                     phi[sites[i]] = result[i]
-                oldcenter = sites[0]
+                # gate crosses boundary
+                if gateList[g].sites[-1] < gateList[g].sites[0]:
+                    oldcenter = -1 # reset orthogonality center
+                else:
+                    oldcenter = sites[0]
                 phi = position(phi, 0, oldcenter=oldcenter, args=args)
                 oldcenter = 0
         # error handling
