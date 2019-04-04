@@ -42,7 +42,7 @@ with open('list.txt', 'r') as f:
 # string_no = int(sys.argv[2])
 # string_no = 22
 # bond_on_str, str_area = lat.convertToStrOp(ast.literal_eval(line[string_no]))
-bond_on_str = [(2,0,'d'),(2,1,'d'),(2,2,'d')]
+bond_on_str = [(4,0,'d'),(4,1,'d'),(4,2,'d'),(4,3,'d')]
 str_area = len(bond_on_str)
 # create string operator
 str_op = []
