@@ -356,7 +356,7 @@ def gateTEvol(psi, gateList, ttotal, tstep, args):
     if (np.abs(nt*tstep-ttotal) > 1.0E-9): 
         sys.exit("Timestep not commensurate with total time")
     gateNum = len(gateList)
-    # periodic = args['yperiodic']
+    # periodic = args['xperiodic']
     phi = position(phi, gateList[0].sites[0], args=args)
     oldcenter = 0
     # if the acting range of the gate crosses the boundary
@@ -485,7 +485,7 @@ def sum(psi1, psi2, args, compress="svd"):
     args : dict
         parameters controlling SVD
     """
-    periodic = args['yperiodic']
+    periodic = args['xperiodic']
     # dimension check
     if len(psi1) != len(psi2):
         sys.exit("The lengths of the two MPSs do not match")

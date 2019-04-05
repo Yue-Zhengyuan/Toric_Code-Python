@@ -9,10 +9,10 @@
 import numpy as np
 
 # system parameters
-args = {'nx': 10, 'ny': 5, 
+args = {'nx': 5, 'ny': 20, 
 'U': 0, 'g': 1.0, 
 'hz': 0.5, 
-'yperiodic': True,
+'xperiodic': True,
 'tau': 0.01, 'ttotal': 1.0, 
 'cutoff': 1.0E-8, 'bondm': 512}
 
@@ -22,9 +22,9 @@ n -= args['nx'] - 1
 # X-non-periodic
 n += args['ny'] - 1
 args.setdefault('n', n)
-# n in case of periodic Y
-if args['yperiodic'] == True:
-    args.setdefault('real_n', n - (args['nx'] - 1))
+# n in case of periodic X
+if args['xperiodic'] == True:
+    args.setdefault('real_n', n - (args['ny'] - 1))
 else:
     args.setdefault('real_n', n)
 

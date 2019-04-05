@@ -10,7 +10,7 @@ import numpy as np
 import copy
 import sys
 
-def lat(site, dir, size):
+def lat(site, dir, size, xperiodic=True):
     """
     numbering the square lattice bonds
 
@@ -23,95 +23,36 @@ def lat(site, dir, size):
         direction of the bond (right or downward)
     size : (int, int) -> (nx, ny)
         linear size of the square lattice
+    xperiodic : default True
+        indicates PBC along x
     """
     nx, ny = size[0], size[1]
     x, y = site[0], site[1]
-    step = 2 * nx - 1
-    if dir == 'r':
-        line_start = y * step + 1
-        num = line_start + x
-        num -= 1
-    elif dir == 'd':
-        col_start = nx + x
-        num = col_start + y * step
-        num -= 1
-    else:
-        sys.exit('Wrong direction of the bond')
+    if xperiodic == False:
+        step = 2 * nx - 1
+        if dir == 'r':
+            line_start = y * step + 1
+            num = line_start + x
+            num -= 1
+        elif dir == 'd':
+            col_start = nx + x
+            num = col_start + y * step
+            num -= 1
+        else:
+            sys.exit('Wrong direction of the bond')
+    if xperiodic == True:
+        if dir == 'r':
+            num = y * 2 * (nx - 1) + x
+        elif dir == 'd':
+            if x == nx - 1:
+                num = (y * 2 + 1) * (nx - 1)
+            else:
+                num = (y * 2 + 1) * (nx - 1) + x
+        else:
+            sys.exit('Wrong direction of the bond')
     return num
 
-def site(coord, size):
-    """
-    numbering the square lattice sites
-
-    Parameters
-    --------------
-    coord : (x, y)
-        (x, y) coordinate of the site
-    size : (int, int) -> (nx, ny)
-        linear size of the square lattice
-    """
-    return coord[1] * size[0] + coord[0]
-
-def inv_site(num, size):
-    """
-    convert site number to coordinate
-
-    Parameters
-    --------------
-    num : int
-        number of the site
-    size : (int, int) -> (nx, ny)
-        linear size of the square lattice
-    """
-    y = int(num / size[0])
-    x = num % size[0]
-    return (x, y)
-
-def sitesOnBond(bond, size):
-    """
-    Return the number of sites connected by the bond
-
-    Parameters
-    -----------------
-    bond: (x, y, 'r/d')
-        the bond in question
-    size : (int, int) -> (nx, ny)
-        linear size of the square lattice
-    """
-    x, y = bond[0], bond[1]
-    if bond[2] == 'r':
-        sites = [(x,y), (x+1,y)]
-    elif bond[2] == 'd':
-        sites = [(x,y), (x,y+1)]
-    return site(sites[0],size), site(sites[1],size)
-
-def makeBondList(size):
-    """
-    create bond list in the square lattice
-
-    Parameters
-    --------------
-    size : (int, int)
-        linear size of the square lattice
-    """
-    # bondlist format
-    # (0,1,2) -> (x,y,'r'/'d')
-    # 3 -> bond number
-    # 4,5 -> number of the two sites connected by the bond
-    bondlist = []
-    for y in range(size[1]):
-        for x in range(size[0]):
-            if y != size[1]-1:
-                site1, site2 = sitesOnBond((x,y,'d'), size)
-                bondlist.append((x, y, 'd', lat((x,y),'d',size), site1, site2))
-            if x != size[0]-1:
-                site1, site2 = sitesOnBond((x,y,'r'), size)
-                bondlist.append((x, y, 'r', lat((x,y),'r',size), site1, site2))
-    bondlist = np.asarray(bondlist, 
-    dtype=[('x', 'i4'), ('y', 'i4'), ('dir', 'U1'), ('bnum', 'i4'), ('s1', 'i4'), ('s2', 'i4')])
-    return bondlist
-
-def selectRegion(string, width, size):
+def selectRegion(string, width, size, xperiodic=True):
     """
     select a region within width from the given string
 
@@ -137,9 +78,9 @@ def selectRegion(string, width, size):
             elif x == size[0]  - 1:    # on the right boundary; add left plaquette only
                 right = []                
             for newbond in left: 
-                region.append(lat(newbond[0:2], newbond[2], size))
+                region.append(lat(newbond[0:2],newbond[2],size, xperiodic=xperiodic))
             for newbond in right:
-                region.append(lat(newbond[0:2], newbond[2], size))
+                region.append(lat(newbond[0:2],newbond[2],size, xperiodic=xperiodic))
         if dir == 'r':
             # add the plaquette above/below this bond
             above = [(x,y-1,'r'),(x,y-1,'d'),(x+1,y-1,'d'),(x,y,'r')]
@@ -149,9 +90,9 @@ def selectRegion(string, width, size):
             if y == size[1] - 1:    # on the lower boundary; add plaquette above only
                 below = []                
             for newbond in above: 
-                region.append(lat(newbond[0:2], newbond[2], size))
+                region.append(lat(newbond[0:2],newbond[2],size, xperiodic=xperiodic))
             for newbond in below:
-                region.append(lat(newbond[0:2], newbond[2], size))
+                region.append(lat(newbond[0:2],newbond[2],size, xperiodic=xperiodic))
     region = np.asarray(region, dtype=int)
     region = np.unique(region)
     return region

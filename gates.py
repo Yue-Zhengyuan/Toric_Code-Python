@@ -160,47 +160,42 @@ def makeGateList(psi, args):
         the region from which gates are constructed
     """
     gateList = []
-    yperiodic = args['yperiodic']
+    xperiodic = args['xperiodic']
     siteNum = len(psi)
     putsite = [False] * siteNum
     swapGates = []
-    reachBottom = False
     # open boundary condition along x
     # make plaquette gates (together with field)
     if (args['g'] != 0):
         # i -> row; j -> column
         for j, i in product(range(args['ny'] - 1), range(args['nx'] - 1)):
-            u = lat.lat((  i,   j), 'r', (args['nx'], args['ny']))
-            l = lat.lat((  i,   j), 'd', (args['nx'], args['ny']))
-            r = lat.lat((i+1,   j), 'd', (args['nx'], args['ny']))
-            d = lat.lat((  i, j+1), 'r', (args['nx'], args['ny']))
-            if yperiodic == True:
-                if d >= args['real_n']:
-                    d -= args['real_n']
-                    reachBottom = True
+            u = lat.lat((  i,   j), 'r', (args['nx'], args['ny']), xperiodic=xperiodic)
+            l = lat.lat((  i,   j), 'd', (args['nx'], args['ny']), xperiodic=xperiodic)
+            r = lat.lat((i+1,   j), 'd', (args['nx'], args['ny']), xperiodic=xperiodic)
+            d = lat.lat((  i, j+1), 'r', (args['nx'], args['ny']), xperiodic=xperiodic)
             sites = [u, l, r, d]
-            # print(sites)
+            print(sites)
             # create swap gates
-            # move the first site
-            for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):
-                swapGates.append(gate([site, site + 1], putsite, 'Swap', args))
-            # move the last site
-            if ((yperiodic == False) or (yperiodic == True and reachBottom == False)):
+            # reaching boundary
+            if r % (args['nx'] - 1) == 0:
+                # in this case r = u + 1, l = u + nx - 1, d = u + 2 (nx - 1)
+                sites.sort()
+                # now sites = [u, u + 1, u + nx - 1, u + 2 (nx - 1)]
+                # move sites[2]
+                for site in np.arange(sites[2], sites[1] + 1, -1, dtype=int):
+                    swapGates.append(gate([site - 1, site], putsite, 'Swap', args))
+                # move sites[3]
+                for site in np.arange(sites[3], sites[1] + 2, -1, dtype=int):
+                    swapGates.append(gate([site - 1, site], putsite, 'Swap', args))
+                gateSites = [sites[0], sites[0]+1, sites[0]+2, sites[0]+3]
+            else:
+                # move sites[0]
+                for site in np.arange(sites[0], sites[1] - 1, 1, dtype=int):
+                    swapGates.append(gate([site, site + 1], putsite, 'Swap', args))
+                # move sites[3]
                 for site in np.arange(sites[3], sites[2] + 1, -1, dtype=int):
                     swapGates.append(gate([site - 1, site], putsite, 'Swap', args))
                 gateSites = [sites[1]-1, sites[1], sites[1]+1, sites[1]+2]
-
-            if (yperiodic == True and reachBottom == True):
-                for site in np.arange(sites[3], sites[2] + 1 - args['real_n'], -1, dtype=int):
-                    if site - 1 >= 0:
-                        swapGates.append(gate([site - 1, site], putsite, 'Swap', args))
-                    elif (site - 1 < 0 and site >= 0):
-                        swapGates.append(gate([site - 1 + args['real_n'], site], putsite, 'Swap', args))
-                    else:
-                        swapGates.append(gate([site - 1 + args['real_n'], site + args['real_n']], putsite, 'Swap', args))
-                gateSites = [sites[1]-1, sites[1], sites[1]+1, sites[1]+2]
-                if gateSites[3] >= args['real_n']:
-                    gateSites[3] -= args['real_n']
 
             for k in range(len(swapGates)):
                 gateList.append(swapGates[k])

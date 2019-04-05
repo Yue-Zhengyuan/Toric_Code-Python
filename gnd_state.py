@@ -15,7 +15,8 @@ from itertools import product
 
 def gnd_state_builder(args):
     """
-    Create MPS for Toric Code ground state
+    Create MPS for Toric Code ground state \n
+    Accepts x-PBC only
     """
     # building blocks
     # ---------------------------------------------------
@@ -54,109 +55,210 @@ def gnd_state_builder(args):
     nx, ny = args['nx'], args['ny']
     result = []
     i = 0
-    if args['yperiodic'] == True:
-        row_range = range(2 * (ny - 1))
-    else:
-        row_range = range(2 * ny - 1)
-    for row in row_range:
-        if (row == 0 and args['yperiodic'] == False):
-            result.append(corner)
-            for j in np.arange(1, nx, 1, dtype=int):
-                result[i] = np.tensordot(result[i], spin, ([-1],[0]))
-                if j == nx - 1:
-                    result[i] = np.tensordot(result[i], corner, ([-1],[0]))
-                else:
-                    result[i] = np.tensordot(result[i], edge, ([-1],[0]))
-            # original axes order:  vir phy vir phy ... vir phy vir
-            # new axes order:       phy ... phy (vir ... vir)
-            # move phy legs to front
-            dest = 0
-            for axis in np.arange(1, len(result[i].shape), 2, dtype=int):
-                result[i] = np.moveaxis(result[i], axis, dest)
-                dest += 1
-            # reshape
-            newshape = [1]
-            for count in range(nx-1): 
-                newshape.append(2)
-            newshape.append(2**nx)
-            result[i] = np.reshape(result[i], newshape)
+    xperiodic = args['xperiodic']
 
-        elif (row == 2 * nx - 2 and args['yperiodic'] == False):
-            result.append(corner)
-            for j in np.arange(1, nx, 1, dtype=int):
-                result[i] = np.tensordot(result[i], spin, ([-1],[0]))
-                if j == nx - 1:
-                    result[i] = np.tensordot(result[i], corner, ([-1],[0]))
-                else:
-                    result[i] = np.tensordot(result[i], edge, ([-1],[0]))
-            # original axes order:  vir phy vir phy ... vir phy vir
-            # new axes order:       vir ... vir (phy ... phy)
-            # move vir legs to front
-            dest = 0
-            for axis in np.arange(0, len(result[i].shape), 2, dtype=int):
-                result[i] = np.moveaxis(result[i], axis, dest)
-                dest += 1
-            # reshape
-            newshape = [2**nx]
-            for count in range(nx-1): 
-                newshape.append(2)
-            newshape.append(1)
-            result[i] = np.reshape(result[i], newshape)
+    if xperiodic == False:
+        for row in range(2 * (ny - 1)):
+            if (row == 0):
+                result.append(corner)
+                for j in np.arange(1, nx, 1, dtype=int):
+                    result[i] = np.tensordot(result[i], spin, ([-1],[0]))
+                    if j == nx - 1:
+                        result[i] = np.tensordot(result[i], corner, ([-1],[0]))
+                    else:
+                        result[i] = np.tensordot(result[i], edge, ([-1],[0]))
+                # original axes order:  vir phy vir phy ... vir phy vir
+                # new axes order:       phy ... phy (vir ... vir)
+                # move phy legs to front
+                dest = 0
+                for axis in np.arange(1, len(result[i].shape), 2, dtype=int):
+                    result[i] = np.moveaxis(result[i], axis, dest)
+                    dest += 1
+                # reshape
+                newshape = [1]
+                for count in range(nx-1): 
+                    newshape.append(2)
+                newshape.append(2**nx)
+                result[i] = np.reshape(result[i], newshape)
 
-        elif row % 2 == 0:
-            result.append(edge)
-            for j in np.arange(1, nx, 1, dtype=int):
-                result[i] = np.tensordot(result[i], spin, ([-1],[0]))
-                if j == nx - 1:
-                    result[i] = np.tensordot(result[i], edge, ([-1],[0]))
-                else:
-                    result[i] = np.tensordot(result[i], vertex, ([-1],[0]))
-            # original axes order:  vir0 vir1 phy ... vir0 vir1 phy vir0 vir1
-            # new axes order:       (vir0 ... vir0) phy ... phy (vir1 ... vir1)
-            # move vir0 (upward) legs to front
-            dest = 0
-            for axis in np.arange(0, len(result[i].shape), 3, dtype=int):
-                result[i] = np.moveaxis(result[i], axis, dest)
-                dest += 1
-            # current axes order: vir0 ... vir0 / vir1 phy ... vir1 phy vir1
-            # move phy legs to center
-            dest = nx
-            for axis in np.arange(nx+1, len(result[i].shape), 2, dtype=int):
-                result[i] = np.moveaxis(result[i], axis, dest)
-                dest += 1
-            # reshape
-            newshape = [2**nx]
-            for count in range(nx-1): 
-                newshape.append(2)
-            newshape.append(2**nx)
-            result[i] = np.reshape(result[i], newshape)
+            elif (row == 2 * nx - 2):
+                result.append(corner)
+                for j in np.arange(1, nx, 1, dtype=int):
+                    result[i] = np.tensordot(result[i], spin, ([-1],[0]))
+                    if j == nx - 1:
+                        result[i] = np.tensordot(result[i], corner, ([-1],[0]))
+                    else:
+                        result[i] = np.tensordot(result[i], edge, ([-1],[0]))
+                # original axes order:  vir phy vir phy ... vir phy vir
+                # new axes order:       vir ... vir (phy ... phy)
+                # move vir legs to front
+                dest = 0
+                for axis in np.arange(0, len(result[i].shape), 2, dtype=int):
+                    result[i] = np.moveaxis(result[i], axis, dest)
+                    dest += 1
+                # reshape
+                newshape = [2**nx]
+                for count in range(nx-1): 
+                    newshape.append(2)
+                newshape.append(1)
+                result[i] = np.reshape(result[i], newshape)
 
-        elif row % 2 == 1:
-            result.append(spin)
-            for j in np.arange(1, nx, 1, dtype=int):
-                result[i] = np.tensordot(result[i], spin, axes=0)
-            # rearrage axes and reshape
-            # original axes order:  vir0 phy vir1 ... vir0 phy vir1
-            # new axes order:       (vir0 ... vir0) phy ... phy (vir1 ... vir1)
-            # move vir0 (upward) legs to front
-            dest = 0
-            for axis in np.arange(0, len(result[i].shape), 3, dtype=int):
-                result[i] = np.moveaxis(result[i], axis, dest)
-                dest += 1
-            # current axes order: vir0 ... vir0 / phy vir1 ... phy vir1
-            # move phy legs to center
-            dest = nx
-            for axis in np.arange(nx, len(result[i].shape), 2, dtype=int):
-                result[i] = np.moveaxis(result[i], axis, dest)
-                dest += 1
-            # reshape
-            newshape = [2**nx]
-            for count in range(nx): 
-                newshape.append(2)
-            newshape.append(2**nx)
-            result[i] = np.reshape(result[i], newshape)
-        i += 1
+            elif row % 2 == 0:
+                result.append(edge)
+                for j in np.arange(1, nx, 1, dtype=int):
+                    result[i] = np.tensordot(result[i], spin, ([-1],[0]))
+                    if j == nx - 1:
+                        result[i] = np.tensordot(result[i], edge, ([-1],[0]))
+                    else:
+                        result[i] = np.tensordot(result[i], vertex, ([-1],[0]))
+                # original axes order:  vir0 vir1 phy ... vir0 vir1 phy vir0 vir1
+                # new axes order:       (vir0 ... vir0) phy ... phy (vir1 ... vir1)
+                # move vir0 (upward) legs to front
+                dest = 0
+                for axis in np.arange(0, len(result[i].shape), 3, dtype=int):
+                    result[i] = np.moveaxis(result[i], axis, dest)
+                    dest += 1
+                # current axes order: vir0 ... vir0 / vir1 phy ... vir1 phy vir1
+                # move phy legs to center
+                dest = nx
+                for axis in np.arange(nx+1, len(result[i].shape), 2, dtype=int):
+                    result[i] = np.moveaxis(result[i], axis, dest)
+                    dest += 1
+                # reshape
+                newshape = [2**nx]
+                for count in range(nx-1): 
+                    newshape.append(2)
+                newshape.append(2**nx)
+                result[i] = np.reshape(result[i], newshape)
 
+            elif row % 2 == 1:
+                result.append(spin)
+                for j in np.arange(1, nx, 1, dtype=int):
+                    result[i] = np.tensordot(result[i], spin, axes=0)
+                # rearrage axes and reshape
+                # original axes order:  vir0 phy vir1 ... vir0 phy vir1
+                # new axes order:       (vir0 ... vir0) phy ... phy (vir1 ... vir1)
+                # move vir0 (upward) legs to front
+                dest = 0
+                for axis in np.arange(0, len(result[i].shape), 3, dtype=int):
+                    result[i] = np.moveaxis(result[i], axis, dest)
+                    dest += 1
+                # current axes order: vir0 ... vir0 / phy vir1 ... phy vir1
+                # move phy legs to center
+                dest = nx
+                for axis in np.arange(nx, len(result[i].shape), 2, dtype=int):
+                    result[i] = np.moveaxis(result[i], axis, dest)
+                    dest += 1
+                # reshape
+                newshape = [2**nx]
+                for count in range(nx): 
+                    newshape.append(2)
+                newshape.append(2**nx)
+                result[i] = np.reshape(result[i], newshape)
+            i += 1
+
+    elif xperiodic == True:
+        for row in range(2 * (ny - 1)):
+            if (row == 0):
+                result.append(edge)
+                for j in np.arange(1, nx, 1, dtype=int):
+                    result[i] = np.tensordot(result[i], spin, ([-1],[0]))
+                    if j == nx - 1:
+                        # take trace due to x-PBC
+                        result[i] = np.tensordot(result[i], edge, ([0,-1],[-1,0]))
+                    else:
+                        result[i] = np.tensordot(result[i], edge, ([-1],[0]))
+                # original axes order:  vir phy vir phy ... vir phy vir
+                # new axes order:       phy ... phy (vir ... vir)
+                # move phy legs to front
+                dest = 0
+                for axis in np.arange(1, len(result[i].shape), 2, dtype=int):
+                    result[i] = np.moveaxis(result[i], axis, dest)
+                    dest += 1
+                # reshape
+                newshape = [1]
+                for count in range(nx-1): 
+                    newshape.append(2)
+                newshape.append(2**nx)
+                result[i] = np.reshape(result[i], newshape)
+
+            elif (row == 2 * nx - 2):
+                result.append(edge)
+                for j in np.arange(1, nx, 1, dtype=int):
+                    result[i] = np.tensordot(result[i], spin, ([-1],[0]))
+                    if j == nx - 1:
+                        # take trace due to x-PBC
+                        result[i] = np.tensordot(result[i], edge, ([0,-1],[-1,0]))
+                    else:
+                        result[i] = np.tensordot(result[i], edge, ([-1],[0]))
+                # original axes order:  vir phy vir phy ... vir phy vir
+                # new axes order:       vir ... vir (phy ... phy)
+                # move vir legs to front
+                dest = 0
+                for axis in np.arange(0, len(result[i].shape), 2, dtype=int):
+                    result[i] = np.moveaxis(result[i], axis, dest)
+                    dest += 1
+                # reshape
+                newshape = [2**nx]
+                for count in range(nx-1): 
+                    newshape.append(2)
+                newshape.append(1)
+                result[i] = np.reshape(result[i], newshape)
+
+            elif row % 2 == 0:
+                result.append(vertex)
+                for j in np.arange(1, nx, 1, dtype=int):
+                    result[i] = np.tensordot(result[i], spin, ([-1],[0]))
+                    if j == nx - 1:
+                        result[i] = np.tensordot(result[i], vertex, ([0,-1],[-1,0]))
+                    else:
+                        result[i] = np.tensordot(result[i], vertex, ([-1],[0]))
+                # original axes order:  vir0 vir1 phy ... vir0 vir1 phy vir0 vir1
+                # new axes order:       (vir0 ... vir0) phy ... phy (vir1 ... vir1)
+                # move vir0 (upward) legs to front
+                dest = 0
+                for axis in np.arange(0, len(result[i].shape), 3, dtype=int):
+                    result[i] = np.moveaxis(result[i], axis, dest)
+                    dest += 1
+                # current axes order: vir0 ... vir0 / vir1 phy ... vir1 phy vir1
+                # move phy legs to center
+                dest = nx
+                for axis in np.arange(nx+1, len(result[i].shape), 2, dtype=int):
+                    result[i] = np.moveaxis(result[i], axis, dest)
+                    dest += 1
+                # reshape
+                newshape = [2**nx]
+                for count in range(nx-1): 
+                    newshape.append(2)
+                newshape.append(2**nx)
+                result[i] = np.reshape(result[i], newshape)
+
+            elif row % 2 == 1:
+                result.append(spin)
+                for j in np.arange(1, nx, 1, dtype=int):
+                    result[i] = np.tensordot(result[i], spin, axes=0)
+                # rearrage axes and reshape
+                # original axes order:  vir0 phy vir1 ... vir0 phy vir1
+                # new axes order:       (vir0 ... vir0) phy ... phy (vir1 ... vir1)
+                # move vir0 (upward) legs to front
+                dest = 0
+                for axis in np.arange(0, len(result[i].shape), 3, dtype=int):
+                    result[i] = np.moveaxis(result[i], axis, dest)
+                    dest += 1
+                # current axes order: vir0 ... vir0 / phy vir1 ... phy vir1
+                # move phy legs to center
+                dest = nx
+                for axis in np.arange(nx, len(result[i].shape), 2, dtype=int):
+                    result[i] = np.moveaxis(result[i], axis, dest)
+                    dest += 1
+                # reshape
+                newshape = [2**nx]
+                for count in range(nx): 
+                    newshape.append(2)
+                newshape.append(2**nx)
+                result[i] = np.reshape(result[i], newshape)
+            i += 1
+    
     # compress MPS
     psi = []
     args['scale'] = True
