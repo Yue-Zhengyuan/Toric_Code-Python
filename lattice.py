@@ -107,12 +107,12 @@ def convertToStrOp(plist):
     bond_on_str = []
     for plq in plist:
         x, y = plq[0], plq[1]
-        if not((x, y-1) in plist):      # upper plaquette
+        if ((x, y-1) not in plist):      # upper plaquette
             bond_on_str.append((x,y,'r'))
-        if not((x, y+1) in plist):      # lower plaquette
+        if ((x, y+1) not in plist):      # lower plaquette
             bond_on_str.append((x,y+1,'r'))
-        if not((x-1, y) in plist):      # left plaquette
+        if ((x-1, y) not in plist):      # left plaquette
             bond_on_str.append((x,y,'d'))
-        if not((x+1, y) in plist):      # right plaquette
+        if ((x+1, y) not in plist):      # right plaquette
             bond_on_str.append((x+1,y,'d'))
     return bond_on_str, area

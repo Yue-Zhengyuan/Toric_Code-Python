@@ -301,14 +301,12 @@ def matElem(psi1, op, psi2):
     """
     # site number check
     if (len(psi1) != len(op) or len(psi2) != len(op)):
-        print('Number of sites of MPS and MPO do not match.')
-        sys.exit()
+        sys.exit('Number of sites of MPS and MPO do not match.')
     # dimension check
     siteNum = len(op)
     for site in range(siteNum):
         if (psi1[site].shape[1] != op[site].shape[1] or psi2[site].shape[1] != op[site].shape[2]):
-            print('Physical leg dimensions of MPO and MPS do not match.')
-            sys.exit()
+            sys.exit('Number of sites of MPS and MPO do not match.')
     # partial contraction
     #      ___
     #  i --| |-- j

@@ -58,7 +58,7 @@ def gnd_state_builder(args):
     xperiodic = args['xperiodic']
 
     if xperiodic == False:
-        for row in range(2 * (ny - 1)):
+        for row in range(2 * ny - 1):
             if (row == 0):
                 result.append(corner)
                 for j in np.arange(1, nx, 1, dtype=int):
@@ -81,7 +81,7 @@ def gnd_state_builder(args):
                 newshape.append(2**nx)
                 result[i] = np.reshape(result[i], newshape)
 
-            elif (row == 2 * nx - 2):
+            elif (row == 2 * ny - 2):
                 result.append(corner)
                 for j in np.arange(1, nx, 1, dtype=int):
                     result[i] = np.tensordot(result[i], spin, ([-1],[0]))
@@ -158,17 +158,15 @@ def gnd_state_builder(args):
             i += 1
 
     elif xperiodic == True:
-        for row in range(2 * (ny - 1)):
+        for row in range(2 * ny - 1):
             if (row == 0):
                 result.append(edge)
-                for j in np.arange(1, nx, 1, dtype=int):
+                for j in range(nx - 2):
                     result[i] = np.tensordot(result[i], spin, ([-1],[0]))
-                    if j == nx - 1:
-                        # take trace due to x-PBC
-                        result[i] = np.tensordot(result[i], edge, ([0,-1],[-1,0]))
-                    else:
-                        result[i] = np.tensordot(result[i], edge, ([-1],[0]))
-                # original axes order:  vir phy vir phy ... vir phy vir
+                    result[i] = np.tensordot(result[i], edge, ([-1],[0]))
+                # take trace due to x-PBC
+                result[i] = np.tensordot(result[i], spin, ([0,-1],[-1,0]))
+                # original axes order:  vir phy vir phy ... vir phy
                 # new axes order:       phy ... phy (vir ... vir)
                 # move phy legs to front
                 dest = 0
@@ -177,21 +175,19 @@ def gnd_state_builder(args):
                     dest += 1
                 # reshape
                 newshape = [1]
-                for count in range(nx-1): 
+                for count in range(nx-1):
                     newshape.append(2)
-                newshape.append(2**nx)
+                newshape.append(2**(nx-1))
                 result[i] = np.reshape(result[i], newshape)
 
-            elif (row == 2 * nx - 2):
+            elif (row == 2 * ny - 2):
                 result.append(edge)
-                for j in np.arange(1, nx, 1, dtype=int):
+                for j in range(nx - 2):
                     result[i] = np.tensordot(result[i], spin, ([-1],[0]))
-                    if j == nx - 1:
-                        # take trace due to x-PBC
-                        result[i] = np.tensordot(result[i], edge, ([0,-1],[-1,0]))
-                    else:
-                        result[i] = np.tensordot(result[i], edge, ([-1],[0]))
-                # original axes order:  vir phy vir phy ... vir phy vir
+                    result[i] = np.tensordot(result[i], edge, ([-1],[0]))
+                # take trace due to x-PBC
+                result[i] = np.tensordot(result[i], spin, ([0,-1],[-1,0]))
+                # original axes order:  vir phy vir phy ... vir phy
                 # new axes order:       vir ... vir (phy ... phy)
                 # move vir legs to front
                 dest = 0
@@ -199,46 +195,46 @@ def gnd_state_builder(args):
                     result[i] = np.moveaxis(result[i], axis, dest)
                     dest += 1
                 # reshape
-                newshape = [2**nx]
-                for count in range(nx-1): 
+                newshape = [2**(nx-1)]
+                for count in range(nx-1):
                     newshape.append(2)
                 newshape.append(1)
                 result[i] = np.reshape(result[i], newshape)
 
             elif row % 2 == 0:
                 result.append(vertex)
-                for j in np.arange(1, nx, 1, dtype=int):
+                for j in range(nx - 2):
                     result[i] = np.tensordot(result[i], spin, ([-1],[0]))
-                    if j == nx - 1:
-                        result[i] = np.tensordot(result[i], vertex, ([0,-1],[-1,0]))
-                    else:
-                        result[i] = np.tensordot(result[i], vertex, ([-1],[0]))
-                # original axes order:  vir0 vir1 phy ... vir0 vir1 phy vir0 vir1
+                    result[i] = np.tensordot(result[i], vertex, ([-1],[0]))
+                # take trace due to x-PBC
+                result[i] = np.tensordot(result[i], spin, ([0,-1],[-1,0]))
+                # original axes order:  vir0 vir1 phy ... vir0 vir1 phy [(nx - 1) triples]
                 # new axes order:       (vir0 ... vir0) phy ... phy (vir1 ... vir1)
                 # move vir0 (upward) legs to front
                 dest = 0
                 for axis in np.arange(0, len(result[i].shape), 3, dtype=int):
                     result[i] = np.moveaxis(result[i], axis, dest)
                     dest += 1
-                # current axes order: vir0 ... vir0 / vir1 phy ... vir1 phy vir1
+                # current axes order: vir0 ... vir0 / vir1 phy ... vir1 phy
+                # position:            0       nx-2   nx-1 nx
                 # move phy legs to center
-                dest = nx
-                for axis in np.arange(nx+1, len(result[i].shape), 2, dtype=int):
+                dest = nx - 1
+                for axis in np.arange(nx, len(result[i].shape), 2, dtype=int):
                     result[i] = np.moveaxis(result[i], axis, dest)
                     dest += 1
                 # reshape
-                newshape = [2**nx]
-                for count in range(nx-1): 
+                newshape = [2**(nx-1)]
+                for count in range(nx-1):
                     newshape.append(2)
-                newshape.append(2**nx)
+                newshape.append(2**(nx-1))
                 result[i] = np.reshape(result[i], newshape)
 
             elif row % 2 == 1:
                 result.append(spin)
-                for j in np.arange(1, nx, 1, dtype=int):
+                for j in range(nx - 2):
                     result[i] = np.tensordot(result[i], spin, axes=0)
                 # rearrage axes and reshape
-                # original axes order:  vir0 phy vir1 ... vir0 phy vir1
+                # original axes order:  vir0 phy vir1 ... vir0 phy vir1 [(nx - 1) triples]
                 # new axes order:       (vir0 ... vir0) phy ... phy (vir1 ... vir1)
                 # move vir0 (upward) legs to front
                 dest = 0
@@ -246,16 +242,17 @@ def gnd_state_builder(args):
                     result[i] = np.moveaxis(result[i], axis, dest)
                     dest += 1
                 # current axes order: vir0 ... vir0 / phy vir1 ... phy vir1
+                # position:            0       nx-2   nx-1 nx
                 # move phy legs to center
-                dest = nx
-                for axis in np.arange(nx, len(result[i].shape), 2, dtype=int):
+                dest = nx - 1
+                for axis in np.arange(nx - 1, len(result[i].shape), 2, dtype=int):
                     result[i] = np.moveaxis(result[i], axis, dest)
                     dest += 1
                 # reshape
-                newshape = [2**nx]
-                for count in range(nx): 
+                newshape = [2**(nx-1)]
+                for count in range(nx-1):
                     newshape.append(2)
-                newshape.append(2**nx)
+                newshape.append(2**(nx-1))
                 result[i] = np.reshape(result[i], newshape)
             i += 1
     

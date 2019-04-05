@@ -174,7 +174,7 @@ def makeGateList(psi, args):
             r = lat.lat((i+1,   j), 'd', (args['nx'], args['ny']), xperiodic=xperiodic)
             d = lat.lat((  i, j+1), 'r', (args['nx'], args['ny']), xperiodic=xperiodic)
             sites = [u, l, r, d]
-            print(sites)
+            # print(sites)
             # create swap gates
             # reaching boundary
             if r % (args['nx'] - 1) == 0:
