@@ -101,7 +101,6 @@ class gate(object):
             ham = copy.copy(mat_list[0])
             for i in range(1, siteNum):
                 ham = np.tensordot(ham, mat_list[i], axes=0)
-            # ham = np.einsum('ab,cd,ef,gh->abcdefgh', *mat_list) * (-args['g'])
             ham *= (-args['g'])
             # adding field
             if (args['hz'] != 0):
@@ -177,7 +176,7 @@ def makeGateList(psi, args):
             # print(sites)
             # create swap gates
             # reaching boundary
-            if r % (args['nx'] - 1) == 0:
+            if (r % (args['nx'] - 1) == 0 and xperiodic == True):
                 # in this case r = u + 1, l = u + nx - 1, d = u + 2 (nx - 1)
                 sites.sort()
                 # now sites = [u, u + 1, u + nx - 1, u + 2 (nx - 1)]
@@ -189,6 +188,7 @@ def makeGateList(psi, args):
                     swapGates.append(gate([site - 1, site], putsite, 'Swap', args))
                 gateSites = [sites[0], sites[0]+1, sites[0]+2, sites[0]+3]
             else:
+                # OBC case / PBC case off boundary
                 # move sites[0]
                 for site in np.arange(sites[0], sites[1] - 1, 1, dtype=int):
                     swapGates.append(gate([site, site + 1], putsite, 'Swap', args))
@@ -218,7 +218,6 @@ def makeGateList(psi, args):
             for k in reversed(range(len(swapGates))):
                 gateList.append(swapGates[k])
             swapGates.clear()
-            reachBottom = False
     # vertex gates (ZZZZ) are not necessary since it commutes with 
     # plaquette (XXXX), closed string (X...X) and field (Z)
     # make vertex gates
