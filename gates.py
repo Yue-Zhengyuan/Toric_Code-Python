@@ -145,14 +145,14 @@ def cleanGates(gateList):
         else:
             j += 1
 
-def makeGateList(psi, args):
+def makeGateList(siteNum, args):
     """
     Create time-evolution/swap gate list
 
     Parameters
     ---------------
-    psi : list of numpy arrays
-        MPS/MPO to be acted on
+    siteNum : int
+        number of sites
     args : dictionary
         parameter dictionary
     region : iterable of integers (default range(p.args['n']))
@@ -160,7 +160,6 @@ def makeGateList(psi, args):
     """
     gateList = []
     xperiodic = args['xperiodic']
-    siteNum = len(psi)
     putsite = [False] * siteNum
     swapGates = []
     # open boundary condition along x

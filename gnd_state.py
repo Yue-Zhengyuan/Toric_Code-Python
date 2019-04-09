@@ -12,6 +12,7 @@ import mps
 import sys
 import copy
 from itertools import product
+from tqdm import tqdm
 
 def gnd_state_builder(args):
     """
@@ -258,15 +259,18 @@ def gnd_state_builder(args):
     
     # compress MPS
     psi = []
-    args['scale'] = True
-    for i in range(len(result)):
+    print("Making ground state")
+    for i in tqdm(range(len(result))):
         m = len(result[i].shape[1:-1])
-        decomp = mps.svd_nsite(m, result[i], 'Fromleft', args=args)
-        for site in range(m):
-            psi.append(decomp[site])
-    args['scale'] = False
+        if m != 1:
+            decomp = mps.svd_nsite(m, result[i], 'Fromleft', args)
+            for site in range(m):
+                psi.append(decomp[site])
+        else:
+            decomp = copy.copy(result[i])
+            psi.append(decomp)
 
-    psi = mps.position(psi, len(psi)-1, args)
+    psi = mps.position(psi, len(psi)-1, args=args)
     psi = mps.normalize(psi, args=args)
 
     return psi

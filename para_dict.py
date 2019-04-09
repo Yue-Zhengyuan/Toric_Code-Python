@@ -9,11 +9,11 @@
 import numpy as np
 
 # system parameters
-args = {'nx': 7, 'ny': 7, 
+args = {'nx': 2, 'ny': 2, 
 'U': 0, 'g': 1.0, 
-'hz': 0, 
+'hz': 0.0, 
 'xperiodic': False,
-'tau': 0.01, 'ttotal': 1.0, 
+'tau': 0.01, 'ttotal': 0.05, 
 'cutoff': 1.0E-8, 'bondm': 512}
 
 n = 2 * (args['nx'] - 1) * args['ny']

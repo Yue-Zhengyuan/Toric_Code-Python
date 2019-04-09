@@ -30,7 +30,7 @@ if (args['xperiodic'] != False):
 
 # create closed string operator MPO enclosing different area(S)
 # read string from file
-with open('list.txt', 'r') as f:
+with open('newlist.txt', 'r') as f:
     line = f.readlines()
     
 # create Toric Code ground state |psi>
@@ -43,9 +43,10 @@ stepNum = int(p.args['ttotal']/p.args['tau'])
 iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 timestep = args['ttotal']/stepNum
+print("Adiabatic time evolution")
 for hz in tqdm(iterlist):
     args['hz'] = hz
-    gateList = gates.makeGateList(psi, args)
+    gateList = gates.makeGateList(args['real_n'], args)
     psi = mps.gateTEvol(psi, gateList, timestep, args['tau'], args=args)
 tend = time.perf_counter()
 
@@ -65,8 +66,8 @@ with open(result_dir + '/parameters.txt', 'a+') as file:
 
 # apply undressed string
 # <psi| exp(+iHt) S exp(-iHt) |psi>
-# for string_no in range(len(line)):
-for string_no in [-2]:
+for string_no in range(len(line)):
+# for string_no in [-2]:
     bond_on_str, str_area = lat.convertToStrOp(ast.literal_eval(line[string_no]))
     # create string operator
     str_op = []
@@ -97,7 +98,7 @@ for string_no in [-2]:
 # timestep = args['ttotal']/stepNum
 # for hz in reversed(iterlist):
 #     args['hz'] = -hz
-#     gateList = gates.makeGateList(psi, args)
+#     gateList = gates.makeGateList(args['real_n'], args)
 #     psi = mps.gateTEvol(psi, gateList, timestep, args['tau'], args=args)
 # tend = time.perf_counter()
 # with open(result_dir + '/parameters.txt', 'a+') as file:

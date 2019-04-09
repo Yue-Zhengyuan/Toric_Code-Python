@@ -58,7 +58,7 @@ iterlist = np.delete(iterlist, 0)
 timestep = args['ttotal']/stepNum
 for hz in tqdm(iterlist):
     args['hz'] = hz
-    gateList = gates.makeGateList(psi, args)
+    gateList = gates.makeGateList(args['real_n'], args)
     psi = mps.gateTEvol(psi, gateList, timestep, args['tau'], args=args)
 tend = time.perf_counter()
 
@@ -111,7 +111,7 @@ for bond_on_str in str_pair_list:
 # timestep = args['ttotal']/stepNum
 # for hz in reversed(iterlist):
 #     args['hz'] = -hz
-#     gateList = gates.makeGateList(psi, args)
+#     gateList = gates.makeGateList(args['real_n'], args)
 #     psi = mps.gateTEvol(psi, gateList, timestep, args['tau'], args=args)
 # tend = time.perf_counter()
 # with open(result_dir + '/parameters.txt', 'a+') as file:
