@@ -6,14 +6,16 @@
 result*/
 benchmark*/
 outfile*
-test*.py
-test.py
-test*/
 figures/
 *list*
 
 ### Backups ###
 old_versions/
+
+### Test Files ###
+test*.py
+test.py
+test*/
 dev/
 
 ### VisualStudioCode ###

@@ -9,7 +9,7 @@
 import numpy as np
 # import scipy.linalg as LA
 import sys
-import copy
+from copy import copy
 import mps
 import para_dict as p
 from itertools import product
@@ -18,7 +18,7 @@ def combinePhyLeg(op):
     """
     Combine the physical legs of an MPO to convert it into MPS
     """
-    psi = copy.copy(op)
+    psi = copy(op)
     for i in range(len(op)):
         virDim = (op[i].shape[0], op[i].shape[-1])
         phyDim = op[i].shape[1:-1]
@@ -43,7 +43,7 @@ def decombPhyLeg(psi, allPhyDim):
     allPhyDim: list of two-arrays
         Physical leg dimension of the MPO on each site
     """
-    op = copy.copy(psi)
+    op = copy(psi)
     for i in range(len(op)):
         virDim = (op[i].shape[0], op[i].shape[-1])
         phyDim = allPhyDim[i]
@@ -75,7 +75,7 @@ def position(op, pos, args, oldcenter=-1, compute_entg=False):
     compute_entg : default False
         if True: return the entanglement entropy between the two sides of the orthogonality center
     """
-    op2 = copy.copy(op)
+    op2 = copy(op)
     allPhyDim = getPhyDim(op2)
     op2 = combinePhyLeg(op2)
     op2 = mps.position(op2, pos, args, oldcenter=oldcenter, 
@@ -133,7 +133,7 @@ def gateTEvol(op, gateList, ttotal, tstep, args):
     args : dict
         parameters controlling SVD
     """
-    op2 = copy.copy(op)
+    op2 = copy(op)
     nt = int(ttotal/tstep + (1e-9 * (ttotal/tstep)))
     if (np.abs(nt*tstep-ttotal) > 1.0E-9): 
         print("Timestep not commensurate with total time")
@@ -285,11 +285,11 @@ def sum(op1, op2, args, compress="svd"):
             sys.exit("The physical dimensions of the two MPOs do not match")
 
     if (compress == None or compress == "svd"):
-        psi1 = copy.copy(op1)
+        psi1 = copy(op1)
         allPhyDim = getPhyDim(op1)
         psi1 = combinePhyLeg(psi1)
 
-        psi2 = copy.copy(op2)
+        psi2 = copy(op2)
         psi2 = combinePhyLeg(psi2)
         result = mps.sum(psi1, psi2, args, compress=compress)
         result = decombPhyLeg(result, allPhyDim)

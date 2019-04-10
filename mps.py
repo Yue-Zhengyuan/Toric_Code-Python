@@ -9,7 +9,7 @@
 import numpy as np
 # import scipy.linalg as LA
 import sys
-import copy
+from copy import copy
 import para_dict as p
 from itertools import product
 from tqdm import tqdm
@@ -86,7 +86,7 @@ def position(psi, pos, args, oldcenter=-1, preserve_norm=True, compute_entg=Fals
     compute_entg : default False
         if True: return the entanglement entropy between the two sides of the orthogonality center
     """
-    phi = copy.copy(psi)
+    phi = copy(psi)
     siteNum = len(psi)
     # determine left/right canonization range
     if oldcenter == -1:               # initialize center to pos
@@ -165,7 +165,7 @@ def normalize(psi, args):
     """
     Normalize MPS |psi> (and set orthogonality center at site 0)
     """
-    phi = copy.copy(psi)
+    phi = copy(psi)
     pos = 0    # right canonical
     phi = position(phi, pos, args, preserve_norm=False)
     norm = np.tensordot(phi[pos], np.conj(phi[pos]), ([0,1,2],[0,1,2]))
@@ -192,7 +192,7 @@ def svd_nsite(n, tensor, dir, args, preserve_norm=True):
     virDim = [tensor.shape[0], tensor.shape[-1]]
     phyDim = list(tensor.shape[1:-1])
     result = []
-    mat = copy.copy(tensor)
+    mat = copy(tensor)
     
     if dir == 'Fromleft':
         old_retain_dim = virDim[0]
@@ -210,7 +210,7 @@ def svd_nsite(n, tensor, dir, args, preserve_norm=True):
             v = np.dot(mat_s, v)
             u = np.reshape(u, (old_retain_dim, phyDim[i], new_retain_dim))
             result.append(u)
-            mat = copy.copy(v)
+            mat = copy(v)
             old_retain_dim = new_retain_dim
         v = np.reshape(v, (old_retain_dim, phyDim[-1], virDim[-1]))
         result.append(v)
@@ -230,7 +230,7 @@ def svd_nsite(n, tensor, dir, args, preserve_norm=True):
             u = np.dot(u, mat_s)
             v = np.reshape(v, (new_retain_dim, phyDim[i], old_retain_dim))
             result.append(v)
-            mat = copy.copy(u)
+            mat = copy(u)
             old_retain_dim = new_retain_dim
         u = np.reshape(u, (virDim[0], phyDim[0], old_retain_dim))
         result.append(u)
@@ -362,7 +362,7 @@ def gateTEvol(psi, gateList, ttotal, tstep, args):
     args : dict
         parameters controlling SVD
     """
-    phi = copy.copy(psi)
+    phi = copy(psi)
     nt = int(ttotal/tstep + (1e-9 * (ttotal/tstep)))
     if (np.abs(nt*tstep-ttotal) > 1.0E-9): 
         sys.exit("Timestep not commensurate with total time")

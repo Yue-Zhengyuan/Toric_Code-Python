@@ -1,7 +1,7 @@
 # 
 #   main_mps.py
 #   Toric_Code-Python
-#   apply the gates and MPO to MPS
+#   apply the Trotter gates to MPS
 #
 #   created on Feb 18, 2019 by Yue Zhengyuan
 #
@@ -12,8 +12,9 @@ import para_dict as p
 import lattice as lat
 import mps
 import gnd_state
+from str_create import str_create
 import sys
-import copy
+from copy import copy
 import time
 import datetime
 import os
@@ -21,42 +22,24 @@ import json
 import ast
 from tqdm import tqdm
 
-args = copy.copy(p.args)
+args = copy(p.args)
 # clear magnetic field
 args['hz'] = 0.0
-# for x-PBC
-if (args['xperiodic'] != True):
-    sys.exit("Wrong BC.")
 
-# create string list
-str_pair_list = []
-mid_y = int(args['ny'] / 2)
-for str_sep in range(1, args['ny'] - 4):
-    if str_sep % 2 == 0:
-        y1 = mid_y - int(str_sep / 2)
-        y2 = mid_y + int(str_sep / 2)
-    else:
-        y1 = mid_y - int(str_sep / 2)
-        y2 = mid_y + int(str_sep / 2) + 1
-    str_pair = []
-    for i in range(args['nx'] - 1):
-        str_pair.append((i, y1, 'r'))
-    for i in range(args['nx'] - 1):
-        str_pair.append((i, y2, 'r'))
-    str_pair_list.append(copy.copy(str_pair))
-    str_pair.clear()
+# create string list (can handle both x-PBC and OBC)
+str_list = str_create(args, args['ny'] - 1)
 
 # create Toric Code ground state |psi>
 psi = gnd_state.gnd_state_builder(args)
 
-tstart = time.perf_counter()
-
 # adiabatic evolution: exp(-iHt)|psi> (With field along z)
+tstart = time.perf_counter()
 stepNum = int(p.args['ttotal']/p.args['tau'])
 iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 timestep = args['ttotal']/stepNum
-for hz in tqdm(iterlist):
+# for hz in tqdm(iterlist):
+for hz in iterlist:
     args['hz'] = hz
     gateList = gates.makeGateList(args['real_n'], args)
     psi = mps.gateTEvol(psi, gateList, timestep, args['tau'], args=args)
@@ -78,24 +61,25 @@ with open(result_dir + '/parameters.txt', 'a+') as file:
 
 # apply undressed string
 # <psi| exp(+iHt) S exp(-iHt) |psi>
-for bond_on_str in str_pair_list:
-    # assign x-directional large string
-    str_sep = np.abs(bond_on_str[0][1] - bond_on_str[-1][1])
-    bond_list = []
-    for bond in bond_on_str:
-        bond_list.append(lat.lat(bond[0:2], bond[2], (args['nx'],args['ny']), xperiodic=args['xperiodic']))
+y_sep = 1
+x_sep = args['nx'] - 1
+for string in str_list:
+    bond_on_str = [lat.lat(string[i][0:2], string[i][2], (args['nx'], args['ny']), 
+                   args['xperiodic']) for i in range(len(string))]
+    str_area = y_sep * x_sep
+    y_sep += 1
     # create string operator
     str_op = []
     for i in range(args['real_n']):
         str_op.append(np.reshape(p.iden, (1,2,2,1)))
-    for i in bond_list:
+    for i in bond_on_str:
         str_op[i] = np.reshape(p.sx, (1,2,2,1))
     result = mps.matElem(psi, str_op, psi)
     with open(result_dir + '/parameters.txt', 'a+') as file:
         file.write('\n')
-        file.write(str(str_sep) + '\t' + str(bond_on_str) + '\t' + str(bond_list) + '\n')    # bonds
+        file.write(str(str_area) + '\t' + str(string) + '\t' + str(bond_on_str) + '\n')    # bonds
     with open(result_dir + '/undressed_result.txt', 'a+') as file:
-        file.write(str(str_sep) + "\t" + str(result) + '\n')
+        file.write(str(str_area) + "\t" + str(result) + '\n')
 
 # # quasi adiabatic evolution:
 # # exp(+iH't) exp(-iHt) |psi>
