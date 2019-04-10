@@ -50,5 +50,5 @@ for i in np.arange(0, len(line), 2, dtype=int):
     os.system(command)
 
 # if no error occurs, remove the outfiles
-# python main_mps_obc.py > outfile_mps 2>&1 &
+# condapy3 main_mps_pbc.py > outfile_mps_pbc 2>&1 &
 # python main_mpo_adiab.py > outfile_mpoadiab 2>&1 &
