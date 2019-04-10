@@ -38,8 +38,8 @@ stepNum = int(p.args['ttotal']/p.args['tau'])
 iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 timestep = args['ttotal']/stepNum
-# for hz in tqdm(iterlist):
-for hz in iterlist:
+for hz in tqdm(iterlist):
+# for hz in iterlist:
     args['hz'] = hz
     gateList = gates.makeGateList(args['real_n'], args)
     psi = mps.gateTEvol(psi, gateList, timestep, args['tau'], args=args)

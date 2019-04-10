@@ -7,7 +7,7 @@
 #
 
 import numpy as np
-# import scipy.linalg as LA
+import scipy.linalg as LA
 import sys
 from copy import copy
 import para_dict as p
@@ -113,7 +113,7 @@ def position(psi, pos, args, oldcenter=-1, preserve_norm=True, compute_entg=Fals
         phyDim = phi[i].shape[1]
         # i,j: virtual leg; a: physical leg
         mat = np.reshape(phi[i], (virDim[0]*phyDim, virDim[1]))
-        a,s,v = np.linalg.svd(mat, full_matrices=False)
+        a,s,v = LA.svd(mat, full_matrices=False, lapack_driver='gesvd')
         a,s,v,retain_dim = svd_truncate(a, s, v, args=args)
         # redistribute matrix norm
         if preserve_norm == True:
@@ -133,7 +133,7 @@ def position(psi, pos, args, oldcenter=-1, preserve_norm=True, compute_entg=Fals
         phyDim = phi[i].shape[1]
         # i,j: virtual leg; a: physical leg
         mat = np.reshape(phi[i], (virDim[0], phyDim*virDim[1]))
-        u,s,b = np.linalg.svd(mat, full_matrices=False)
+        u,s,b = LA.svd(mat, full_matrices=False, lapack_driver='gesvd')
         u,s,b,retain_dim = svd_truncate(u, s, b, args=args)
         # redistribute matrix norm
         if preserve_norm == True:
@@ -151,7 +151,7 @@ def position(psi, pos, args, oldcenter=-1, preserve_norm=True, compute_entg=Fals
     if compute_entg == True:
         # do svd for the matrix at the orthogonality center
         mat = np.reshape(phi[pos], (virDim[0]*phyDim, virDim[1]))
-        s = np.linalg.svd(mat, full_matrices=False, compute_uv=False)
+        s = LA.svd(mat, full_matrices=False, compute_uv=False, lapack_driver='gesvd')
         # normalize spectrum: sum(s**2) = 1
         s2 = s**2
         s2 = s2 / np.sum(s2)
@@ -199,7 +199,7 @@ def svd_nsite(n, tensor, dir, args, preserve_norm=True):
         for i in np.arange(0, n - 1, 1, dtype=int):
             mat = np.reshape(mat, (old_retain_dim * phyDim[i], 
             virDim[1] * np.prod(phyDim[i+1 : len(phyDim)])))
-            u,s,v = np.linalg.svd(mat, full_matrices=False)
+            u,s,v = LA.svd(mat, full_matrices=False, lapack_driver='gesvd')
             u,s,v,new_retain_dim = svd_truncate(u, s, v, args=args)
             # redistribute matrix norm
             if preserve_norm == True:
@@ -219,7 +219,7 @@ def svd_nsite(n, tensor, dir, args, preserve_norm=True):
         for i in np.arange(n - 1, 0, -1, dtype=int):
             mat = np.reshape(mat, (virDim[0] * np.prod(phyDim[0 : i]),
             phyDim[i] * old_retain_dim))
-            u,s,v = np.linalg.svd(mat, full_matrices=False)
+            u,s,v = LA.svd(mat, full_matrices=False, lapack_driver='gesvd')
             u,s,v,new_retain_dim = svd_truncate(u, s, v, args=args)
             # redistribute matrix norm
             if preserve_norm == True:
