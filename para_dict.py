@@ -14,7 +14,7 @@ import numpy as np
 # x_PBC = x_OBC - 1 (will be fixed in the future if time allows)
 args = {'nx': 4, 'ny': 20, 
 'U': 0, 'g': 1.0, 
-'hz': 0.5, 
+'hz': 0.4, 
 'xperiodic': False,
 'tau': 0.01, 'ttotal': 1.0, 
 'cutoff': 1.0E-8, 'bondm': 512}

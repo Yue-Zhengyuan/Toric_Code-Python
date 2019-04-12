@@ -457,7 +457,7 @@ def gateTEvol(psi, gateList, ttotal, tstep, args):
                 print('Wrong number of sites')
                 sys.exit()
     # return a guaged and normalized MPS |phi>
-    phi = normalize(phi, args=args)
+    # phi = normalize(phi, args=args)
     return phi
 
 def sum(psi1, psi2, args, compress="svd"):
