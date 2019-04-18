@@ -56,6 +56,9 @@ os.makedirs(result_dir, exist_ok=True)
 # save parameters
 with open(result_dir + '/parameters.txt', 'w+') as file:
     file.write(json.dumps(args))  # use json.loads to do the reverse
+
+psi_save = np.asarray(psi)
+np.save(result_dir + '/psi', psi_save)
 with open(result_dir + '/parameters.txt', 'a+') as file:
     file.write("\nAdiabatic evolution: " + str(tend-tstart) + " s\n")
     file.write('\nUsing String Operators:\n')
@@ -82,42 +85,42 @@ for string in str_list:
     with open(result_dir + '/undressed_result.txt', 'a+') as file:
         file.write(str(str_area) + "\t" + str(result) + '\n')
 
-# quasi adiabatic evolution:
-# exp(+iH't) exp(-iHt) |psi>
-print("Quasi-adiabatic Evolution")
-tstart = time.perf_counter()
-# stepNum = 4
-stepNum = int(p.args['ttotal']/p.args['tau'])
-iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
-iterlist = np.delete(iterlist, 0)
-timestep = args['ttotal']/stepNum
-args['g'] *= -1
-for hz in tqdm(reversed(iterlist)):
-# for hz in reversed(iterlist):
-    args['hz'] = -hz
-    gateList = gates.makeGateList(args['real_n'], args)
-    psi = mps.gateTEvol(psi, gateList, timestep, args['tau'], args=args)
-tend = time.perf_counter()
+# # quasi adiabatic evolution:
+# # exp(+iH't) exp(-iHt) |psi>
+# print("Quasi-adiabatic Evolution")
+# tstart = time.perf_counter()
+# # stepNum = 4
+# stepNum = int(p.args['ttotal']/p.args['tau'])
+# iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
+# iterlist = np.delete(iterlist, 0)
+# timestep = args['ttotal']/stepNum
+# args['g'] *= -1
+# for hz in tqdm(reversed(iterlist)):
+# # for hz in reversed(iterlist):
+#     args['hz'] = -hz
+#     gateList = gates.makeGateList(args['real_n'], args)
+#     psi = mps.gateTEvol(psi, gateList, timestep, args['tau'], args=args)
+# tend = time.perf_counter()
 
-with open(result_dir + '/parameters.txt', 'a+') as file:
-    file.write("\nQuasi-adiabatic evolution: " + str(tend-tstart) + " s\n")
-    file.write("Using " + str(stepNum) + ' steps\n')
+# with open(result_dir + '/parameters.txt', 'a+') as file:
+#     file.write("\nQuasi-adiabatic evolution: " + str(tend-tstart) + " s\n")
+#     file.write("Using " + str(stepNum) + ' steps\n')
 
-# apply dressed string
-# <psi| exp(+iHt) exp(-iH't) S exp(+iH't) exp(-iHt) |psi>
-y_sep = 1
-x_sep = args['nx'] - 1
-for string in str_list:
-    bond_on_str = [lat.lat(string[i][0:2], string[i][2], (args['nx'], args['ny']), 
-                   args['xperiodic']) for i in range(len(string))]
-    str_area = y_sep * x_sep
-    y_sep += 1
-    # create string operator
-    str_op = []
-    for i in range(args['real_n']):
-        str_op.append(np.reshape(p.iden, (1,2,2,1)))
-    for i in bond_on_str:
-        str_op[i] = np.reshape(p.sx, (1,2,2,1))
-    result = mps.matElem(psi, str_op, psi)
-    with open(result_dir + '/dressed_result.txt', 'a+') as file:
-        file.write(str(str_area) + "\t" + str(result) + '\n')
+# # apply dressed string
+# # <psi| exp(+iHt) exp(-iH't) S exp(+iH't) exp(-iHt) |psi>
+# y_sep = 1
+# x_sep = args['nx'] - 1
+# for string in str_list:
+#     bond_on_str = [lat.lat(string[i][0:2], string[i][2], (args['nx'], args['ny']), 
+#                    args['xperiodic']) for i in range(len(string))]
+#     str_area = y_sep * x_sep
+#     y_sep += 1
+#     # create string operator
+#     str_op = []
+#     for i in range(args['real_n']):
+#         str_op.append(np.reshape(p.iden, (1,2,2,1)))
+#     for i in bond_on_str:
+#         str_op[i] = np.reshape(p.sx, (1,2,2,1))
+#     result = mps.matElem(psi, str_op, psi)
+#     with open(result_dir + '/dressed_result.txt', 'a+') as file:
+#         file.write(str(str_area) + "\t" + str(result) + '\n')
