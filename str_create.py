@@ -1,8 +1,7 @@
 # 
 #   str_create.py
 #   Toric_Code-Python
-#   create closed string operator automatically from input nx and ny
-#   for systems long in y direction
+#   functions useful for string creation
 #
 #   created on Apr 10, 2019 by Yue Zhengyuan
 #
@@ -187,15 +186,51 @@ def str_create2(args, maxdy):
             plqlist.append([i, j])
             closed_str_list.append(copy(plqlist))
 
-        # if str_sep == 1:
-        #     pass
-        # elif str_sep % 2 == 0:
-        #     y2 += 1
-        # elif str_sep % 2 == 1:
-        #     y1 -= 1
-        # for i in range(args['nx'] - 1):
-        #     for j in range(y1, y2):
-        #         plqlist.append([i, j])
-        #     closed_str_list.append(copy(plqlist))
-        # plqlist.clear()
     return closed_str_list
+
+def selectRegion(string, width, args):
+    """
+    select a region within width from the given string
+
+    Parameters
+    -----------------
+    string : list of bonds
+        bonds on the string operator
+    width : int
+        width of the spreading from string operator
+    size : (int, int)
+        linear size of the lattice system
+    """
+    region = []
+    size = [args['nx'], args['ny']]
+    xperiodic = args['xperiodic']
+    for bond in string:
+        x, y, dir = bond[0], bond[1], bond[2]
+        if dir == 'd':
+            # add the plaquette to the left/right of this bond
+            left = [(x-1,y,'r'),(x-1,y,'d'),(x,y,'d'),(x-1,y+1,'r')]
+            right = [(x,y,'d'),(x,y,'r'),(x+1,y,'d'),(x,y+1,'r')]
+            # check whether this is a boundary bond
+            if x == 0:              # on the left boundary; add right plaquette only
+                left = []
+            elif x == size[0]  - 1:    # on the right boundary; add left plaquette only
+                right = []                
+            for newbond in left: 
+                region.append(lat.lat(newbond[0:2], newbond[2], size, xperiodic))
+            for newbond in right:
+                region.append(lat.lat(newbond[0:2], newbond[2], size, xperiodic))
+        if dir == 'r':
+            # add the plaquette above/below this bond
+            above = [(x,y-1,'r'),(x,y-1,'d'),(x+1,y-1,'d'),(x,y,'r')]
+            below = [(x,y,'r'),(x,y,'d'),(x+1,y,'d'),(x,y+1,'r')]
+            if y == 0:          # on the upper boundary; add plaquette below only
+                above = []
+            if y == size[1] - 1:    # on the lower boundary; add plaquette above only
+                below = []                
+            for newbond in above: 
+                region.append(lat.lat(newbond[0:2], newbond[2], size, xperiodic))
+            for newbond in below:
+                region.append(lat.lat(newbond[0:2], newbond[2], size, xperiodic))
+    region = np.asarray(region, dtype=int)
+    region = np.unique(region)
+    return region

@@ -13,9 +13,8 @@ figures/
 old_versions/
 
 ### Test Files ###
-test*.py
-test.py
-test*/
+*test*
+*test*/
 dev/
 
 ### VisualStudioCode ###

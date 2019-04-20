@@ -150,8 +150,10 @@ def position(psi, pos, args, oldcenter=-1, preserve_norm=True, compute_entg=Fals
     # compute entanglement entropy
     if compute_entg == True:
         # do svd for the matrix at the orthogonality center
+        virDim = [phi[pos].shape[0], phi[pos].shape[-1]]
+        phyDim = phi[pos].shape[1]
         mat = np.reshape(phi[pos], (virDim[0]*phyDim, virDim[1]))
-        s = LA.svd(mat, full_matrices=False, compute_uv=False, lapack_driver='gesvd')
+        s = LA.svd(mat, compute_uv=False, lapack_driver='gesvd')
         # normalize spectrum: sum(s**2) = 1
         s2 = s**2
         s2 = s2 / np.sum(s2)
