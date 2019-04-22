@@ -268,7 +268,7 @@ def gateTEvol(op, gateList, ttotal, tstep, args):
 
 def sum(op1, op2, args, compress="svd"):
     """
-    Calculate the sum product of two MPO's
+    Calculate the sum of two MPO's
 
     Parameters
     ------------
@@ -298,6 +298,44 @@ def sum(op1, op2, args, compress="svd"):
     elif (compress == "var"):
         pass
     
+    else: 
+        sys.exit("Wrong compress parameter")
+    return result
+
+def prod(op1, op2, args, compress="svd"):
+    """
+    Calculate the product of two MPO's
+
+    Parameters
+    ------------
+    op1, op2 : list of numpy arrays
+        The two MPOs to be multiplied
+    args : dict
+        parameters controlling SVD
+    """
+    # dimension check
+    if len(op1) != len(op2):
+        sys.exit("The lengths of the two MPOs do not match")
+    for i in range(len(op1)):
+        if (op1[i].shape[1] != op2[i].shape[2]):
+            sys.exit("The physical dimensions of the two MPOs do not match")
+
+    result = []
+    for i in range(len(op1)):
+        result.append(np.tensordot(op1[i], op2[i], axes=([1],[2])))
+        result[i] = np.transpose(result[i], axes=(1,3,5,0,2,4))
+        shape = np.shape(result[i])
+        result[i] = np.reshape(result[i], 
+        (shape(0)*shape(1), shape(2)*shape(3), shape(4)*shape(5)))
+        
+    if compress == None:
+        pass
+    # svd compress
+    elif compress == "svd":
+        result = position(result, 0, args)
+    # variational optimization
+    elif (compress == "var"):
+        pass
     else: 
         sys.exit("Wrong compress parameter")
     return result
