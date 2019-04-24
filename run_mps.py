@@ -23,13 +23,14 @@ args = copy(p.args)
 # create result directory
 # get path to psi.npy via command line
 result_dir = sys.argv[1]
+# result_dir = "result_mps_2019_4_24_18_31/"
 
-result_dir += "/quasi"
-outdir = result_dir + '/outfile'
+result_dir += "quasi/"
+outdir = result_dir + 'outfile/'
 os.makedirs(result_dir, exist_ok=True)
 os.makedirs(outdir, exist_ok=True)
-parafile = result_dir + '/parameters.txt'
-resultfile = result_dir + '/dressed_result.txt'
+parafile = result_dir + 'parameters.txt'
+resultfile = result_dir + 'dressed_result.txt'
 
 # get the number of strings
 # create string list (can handle both x-PBC and OBC)
@@ -54,7 +55,7 @@ with open(parafile, 'w+') as file:
         file.write("bond number: \n" + str(bond_list) + '\n')
         file.write("bond within distance 1: \n" + str(region) + '\n')
 
-python = "/anaconda3/bin/python"
+python = "~/anaconda3/bin/python"
 # python = "python3"
 
 # command parameters
@@ -65,7 +66,7 @@ python = "/anaconda3/bin/python"
 for i in used_str:
     command = python + " mps_quasi_evol.py "
     command += result_dir + " " + str(i)
-    command += " > " + outdir + "/outfile_quasi_" + str(i)
+    command += " > " + outdir + "outfile_quasi_" + str(i)
     command += " 2>&1 &"
     os.system(command)
 
