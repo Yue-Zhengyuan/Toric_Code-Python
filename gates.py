@@ -167,6 +167,7 @@ def makeGateList(siteNum, args, region=range(p.args['real_n'])):
     if (args['g'] != 0):
         # i -> row; j -> column
         for j, i in product(range(args['ny'] - 1), range(args['nx'] - 1)):
+            out_of_region = False
             u = lat.lat((  i,   j), 'r', (args['nx'], args['ny']), xperiodic=xperiodic)
             l = lat.lat((  i,   j), 'd', (args['nx'], args['ny']), xperiodic=xperiodic)
             r = lat.lat((i+1,   j), 'd', (args['nx'], args['ny']), xperiodic=xperiodic)
@@ -175,7 +176,10 @@ def makeGateList(siteNum, args, region=range(p.args['real_n'])):
             # check if this gate is in the region
             for i in range(len(sites)):
                 if sites[i] not in region:
-                    continue
+                    out_of_region = True
+                    break
+            if out_of_region == True:
+                continue
             # print(sites)
             # create swap gates
             # reaching boundary

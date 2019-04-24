@@ -10,7 +10,7 @@ figures/
 *list*
 
 ### Backups ###
-old_versions/
+deprecated/
 
 ### Test Files ###
 *test*

@@ -1,7 +1,7 @@
 # 
 #   para_dict.py
 #   Toric_Code-Python
-#   TEBD / tMPO parameters
+#   Toric Code and TEBD / tMPO parameters
 #
 #   created on Jan 24, 2019 by Yue Zhengyuan
 #
@@ -12,10 +12,10 @@ import numpy as np
 # current convention:
 # for the same system width (x)
 # x_PBC = x_OBC - 1 (will be fixed in the future if time allows)
-args = {'nx': 5, 'ny': 20, 
+args = {'nx': 6, 'ny': 20, 
 'U': 0, 'g': 1.0, 
 'hz': 0.4, 
-'xperiodic': True,
+'xperiodic': False,
 'tau': 0.005, 'ttotal': 1.0, 
 'cutoff': 1.0E-8, 'bondm': 512}
 
