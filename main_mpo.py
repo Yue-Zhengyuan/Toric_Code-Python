@@ -20,6 +20,7 @@ import datetime
 import os
 import json
 import ast
+from tqdm import tqdm
 
 args = copy.copy(p.args)
 # clear magnetic field
@@ -51,7 +52,7 @@ for i in range(args['real_n']):
 # convert coordinate to unique number in 1D
 bond_list = []
 for bond in bond_on_str:
-    bond_list.append(lat.lat(bond[0:2], bond[2], (args['nx'], args['ny'])))
+    bond_list.append(lat.lat(bond[0:2], bond[2], (args['nx'], args['ny']), args['xperiodic']))
 for i in bond_list:
     str_op[i] = np.reshape(p.sx, (1,2,2,1))
 with open(result_dir + '/parameters.txt', 'a+') as file:
@@ -75,6 +76,7 @@ tstart = time.perf_counter()
 stepNum = int(p.args['ttotal']/p.args['tau'])
 iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
+iterlist = np.flip(iterlist)
 timestep = args['ttotal']/stepNum
 for hz in iterlist:
     args['hz'] = hz

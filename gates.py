@@ -145,7 +145,7 @@ def cleanGates(gateList):
         else:
             j += 1
 
-def makeGateList(siteNum, args):
+def makeGateList(siteNum, args, region=range(p.args['real_n'])):
     """
     Create time-evolution/swap gate list
 
@@ -172,6 +172,10 @@ def makeGateList(siteNum, args):
             r = lat.lat((i+1,   j), 'd', (args['nx'], args['ny']), xperiodic=xperiodic)
             d = lat.lat((  i, j+1), 'r', (args['nx'], args['ny']), xperiodic=xperiodic)
             sites = [u, l, r, d]
+            # check if this gate is in the region
+            for i in range(len(sites)):
+                if sites[i] not in region:
+                    continue
             # print(sites)
             # create swap gates
             # reaching boundary

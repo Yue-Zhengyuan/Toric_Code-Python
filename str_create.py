@@ -27,67 +27,39 @@ def str_create(args, maxdy):
 
     Returns
     ----------------
-    bonds on the string (x, y, dir)
+    plaquettes enclosed by the closed string
     """
     if maxdy > args['ny'] - 1:
         sys.exit("max y separation larger than system y size")
     elif maxdy < 1:
         sys.exit("max y separation smaller than 1")
 
-    if args['xperiodic'] == True:
-        # create string pair list by assigning bond
-        str_pair_list = []
-        mid_y = int(args['ny'] / 2)
-        # initial value
-        y1 = mid_y - 1
-        y2 = mid_y
-        for str_sep in range(1, maxdy + 1):
-            if str_sep == 1:
-                pass
-            elif str_sep % 2 == 0:
-                y2 += 1
-            elif str_sep % 2 == 1:
-                y1 -= 1
-            str_pair = []
-            for i in range(0, args['nx'] - 1):
-                str_pair.append((i, y1, 'r'))
-            for i in range(0, args['nx'] - 1):
-                str_pair.append((i, y2, 'r'))
-            # for j in range(y1, y2):
-            #     str_pair.append((0, j, 'd'))
-            # for j in range(y1, y2):
-            #     str_pair.append((args['nx'] - 2, j, 'd'))
-            str_pair_list.append(copy(str_pair))
-
-        return str_pair_list
-    
-    elif args['xperiodic'] == False:
-
-        # create string pair list by assigning plaquette
-        closed_str_list = []
-        mid_y = int(args['ny'] / 2)
-        mid_x = int(args['nx'] / 2)
-        # initial value
-        y1 = mid_y - 1
-        y2 = mid_y
-        for str_sep in range(1, maxdy + 1):
-            if str_sep == 1:
-                pass
-            elif str_sep % 2 == 0:
-                y2 += 1
-            elif str_sep % 2 == 1:
-                y1 -= 1
-            closed_str = []
-            for i in range(args['nx'] - 1):
-                closed_str.append((i, y1, 'r'))
-            for i in range(args['nx'] - 1):
-                closed_str.append((i, y2, 'r'))
-            for j in range(y1, y2):
-                closed_str.append((0, j, 'd'))
-            for j in range(y1, y2):
-                closed_str.append((args['nx'] - 1, j, 'd'))
-            closed_str_list.append(copy(closed_str))
-        return closed_str_list
+    closed_str_list = []
+    plqlist = []
+    # create string pair list by adding plaquette
+    mid_y = int(args['ny'] / 2)
+    mid_x = int(args['nx'] / 2)
+    # initial value
+    y1 = mid_y - 1
+    y2 = mid_y - 1
+    for str_sep in range(1, maxdy + 1):
+        if str_sep == 1:
+            j = y1
+        elif str_sep % 2 == 0:
+            y2 += 1
+            j = y2
+        elif str_sep % 2 == 1:
+            y1 -= 1
+            j = y1
+            
+        if args['xperiodic'] == True:
+            iterlist = range(args['nx'] - 2)
+        else:
+            iterlist = range(args['nx'] - 1)
+        for i in iterlist:
+            plqlist.append([i, j])
+        closed_str_list.append(copy(plqlist))
+    return closed_str_list
 
 def convertToStrOp(plqlist, args):
     """
@@ -182,7 +154,12 @@ def str_create2(args, maxdy):
         elif str_sep % 2 == 1:
             y1 -= 1
             j = y1
-        for i in range(args['nx'] - 2):
+
+        if args['xperiodic'] == True:
+            iterlist = range(args['nx'] - 2)
+        else:
+            iterlist = range(args['nx'] - 1)
+        for i in iterlist:
             plqlist.append([i, j])
             closed_str_list.append(copy(plqlist))
 
@@ -211,10 +188,16 @@ def selectRegion(string, width, args):
             left = [(x-1,y,'r'),(x-1,y,'d'),(x,y,'d'),(x-1,y+1,'r')]
             right = [(x,y,'d'),(x,y,'r'),(x+1,y,'d'),(x,y+1,'r')]
             # check whether this is a boundary bond
-            if x == 0:              # on the left boundary; add right plaquette only
-                left = []
-            elif x == size[0]  - 1:    # on the right boundary; add left plaquette only
-                right = []                
+            if xperiodic == False:
+                if x == 0:                # left boundary: add right plq. only
+                    left = []
+                elif x == size[0]  - 1:   # right boundary: add left plq. only
+                    right = []
+            elif xperiodic == True:
+                if x == 0:                # left boundary: add rightmost plq.
+                    left = [(x-1,y,'r'),(x-1,y,'d'),(x,y,'d'),(x-1,y+1,'r')]
+                elif x == size[0]  - 1:   # right boundary: add leftmost plq.
+                    right = [(x,y,'d'),(x,y,'r'),(x+1,y,'d'),(x,y+1,'r')]
             for newbond in left: 
                 region.append(lat.lat(newbond[0:2], newbond[2], size, xperiodic))
             for newbond in right:
@@ -223,9 +206,9 @@ def selectRegion(string, width, args):
             # add the plaquette above/below this bond
             above = [(x,y-1,'r'),(x,y-1,'d'),(x+1,y-1,'d'),(x,y,'r')]
             below = [(x,y,'r'),(x,y,'d'),(x+1,y,'d'),(x,y+1,'r')]
-            if y == 0:          # on the upper boundary; add plaquette below only
+            if y == 0:              # upper boundary; add plq. below only
                 above = []
-            if y == size[1] - 1:    # on the lower boundary; add plaquette above only
+            if y == size[1] - 1:    # lower boundary; add plq. above only
                 below = []                
             for newbond in above: 
                 region.append(lat.lat(newbond[0:2], newbond[2], size, xperiodic))

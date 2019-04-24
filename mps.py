@@ -67,7 +67,7 @@ def svd_truncate(u, s, v, args, normalize=True, rounding=False):
     
     return u, s, v, retain_dim
 
-def position(psi, pos, args, oldcenter=-1, preserve_norm=True, compute_entg=False):
+def position(psi, pos, args, oldcenter=-1, preserve_norm=False, compute_entg=False):
     """
     set the orthogonality center of the MPS |psi> to pos'th site
 
@@ -175,7 +175,7 @@ def normalize(psi, args):
     phi[pos] /= norm
     return phi
 
-def svd_nsite(n, tensor, dir, args, preserve_norm=True):
+def svd_nsite(n, tensor, dir, args, preserve_norm=False):
     """
     Do SVD to convert one large tensor into an n-site MPS
     
@@ -305,7 +305,7 @@ def matElem(psi1, op, psi2, verbose=False):
     """
     # site number check
     if (len(psi1) != len(op) or len(psi2) != len(op)):
-        print(len(psi1), len(psi2), len(op), sep='\t')
+        # print(len(psi1), len(psi2), len(op), sep='\t')
         sys.exit('Number of sites of MPS and MPO do not match.')
     # dimension check
     siteNum = len(op)
