@@ -61,6 +61,104 @@ def str_create(args, maxdy):
         closed_str_list.append(copy(plqlist))
     return closed_str_list
 
+def str_create2(args, maxdy):
+    """
+    create closed string operator automatically from input nx and ny
+    for systems long in y direction
+
+    Parameters
+    ----------------
+    args : dictionary
+        should include 'nx', 'ny', 'xperiodic' entries
+    maxsep : int
+        maximum separation of the closed string opeator (x-OBC)
+        or x-string operator pair (x-PBC) along y direction
+
+    Returns
+    ----------------
+    plaquettes enclosed by the closed string
+    """
+    if maxdy > args['ny'] - 1:
+        sys.exit("max y separation larger than system y size")
+    elif maxdy < 1:
+        sys.exit("max y separation smaller than 1")
+
+    closed_str_list = []
+    plqlist = []
+    # create string pair list by adding plaquette
+    mid_y = int(args['ny'] / 2)
+    mid_x = int(args['nx'] / 2)
+    # initial value
+    y1 = mid_y - 1
+    y2 = mid_y - 1
+    for str_sep in range(1, maxdy + 1):
+        if str_sep == 1:
+            j = y1
+        elif str_sep % 2 == 0:
+            y2 += 1
+            j = y2
+        elif str_sep % 2 == 1:
+            y1 -= 1
+            j = y1
+
+        if args['xperiodic'] == True:
+            iterlist = range(args['nx'] - 2)
+        else:
+            iterlist = range(args['nx'] - 1)
+        for i in iterlist:
+            plqlist.append([i, j])
+            closed_str_list.append(copy(plqlist))
+
+    return closed_str_list
+
+def str_create3(args, dy):
+    """
+    create closed string operator separated by dy from input nx and ny
+    for systems long in y direction (PBC only)
+
+    Parameters
+    ----------------
+    args : dictionary
+        should include 'nx', 'ny', 'xperiodic' entries
+    maxsep : int
+        maximum separation of the closed string opeator (x-OBC)
+        or x-string operator pair (x-PBC) along y direction
+
+    Returns
+    ----------------
+    plaquettes enclosed by the closed string
+    """
+    if dy > args['ny'] - 1:
+        sys.exit("max y separation larger than system y size")
+    elif dy < 1:
+        sys.exit("max y separation smaller than 1")
+
+    if args['xperiodic'] == False:
+        sys.exit("Accepts x-PBC only")
+
+    closed_str_list = []
+    plqlist = []
+    # create string pair list by adding plaquette
+    mid_y = int(args['ny'] / 2)
+    mid_x = int(args['nx'] / 2)
+    # initial value
+    y1 = mid_y - 1
+    y2 = mid_y
+    str_sep = 1
+    while str_sep <= dy:
+        if str_sep == 1:
+            pass
+        elif str_sep % 2 == 0:
+            y2 += 1
+        elif str_sep % 2 == 1:
+            y1 -= 1
+        str_sep += 1
+    for j in range(y1, y2):
+        for i in range(args['nx'] - 1):
+            plqlist.append([i, j])
+    closed_str_list.append(copy(plqlist))
+    return closed_str_list
+
 def convertToStrOp(plqlist, args):
     """
     Convert the plaquettes enclosed by string to the string
@@ -114,56 +212,6 @@ def convertToStrOp(plqlist, args):
 
     circum = len(bond_on_str)       
     return bond_on_str, area, circum
-
-def str_create2(args, maxdy):
-    """
-    create closed string operator automatically from input nx and ny
-    for systems long in y direction
-
-    Parameters
-    ----------------
-    args : dictionary
-        should include 'nx', 'ny', 'xperiodic' entries
-    maxsep : int
-        maximum separation of the closed string opeator (x-OBC)
-        or x-string operator pair (x-PBC) along y direction
-
-    Returns
-    ----------------
-    plaquettes enclosed by the closed string
-    """
-    if maxdy > args['ny'] - 1:
-        sys.exit("max y separation larger than system y size")
-    elif maxdy < 1:
-        sys.exit("max y separation smaller than 1")
-
-    closed_str_list = []
-    plqlist = []
-    # create string pair list by adding plaquette
-    mid_y = int(args['ny'] / 2)
-    mid_x = int(args['nx'] / 2)
-    # initial value
-    y1 = mid_y - 1
-    y2 = mid_y - 1
-    for str_sep in range(1, maxdy + 1):
-        if str_sep == 1:
-            j = y1
-        elif str_sep % 2 == 0:
-            y2 += 1
-            j = y2
-        elif str_sep % 2 == 1:
-            y1 -= 1
-            j = y1
-
-        if args['xperiodic'] == True:
-            iterlist = range(args['nx'] - 2)
-        else:
-            iterlist = range(args['nx'] - 1)
-        for i in iterlist:
-            plqlist.append([i, j])
-            closed_str_list.append(copy(plqlist))
-
-    return closed_str_list
 
 def selectRegion(string, width, args):
     """

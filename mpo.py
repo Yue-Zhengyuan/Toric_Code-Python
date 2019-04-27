@@ -78,10 +78,16 @@ def position(op, pos, args, oldcenter=-1, compute_entg=False):
     op2 = copy(op)
     allPhyDim = getPhyDim(op2)
     op2 = combinePhyLeg(op2)
-    op2 = mps.position(op2, pos, args, oldcenter=oldcenter, 
-    preserve_norm=True, compute_entg=compute_entg)
-    op2 = decombPhyLeg(op2, allPhyDim)
-    return op2
+    if compute_entg == True:
+        op2, entg = mps.position(op2, pos, args, oldcenter=oldcenter, 
+        preserve_norm=True, compute_entg=True)
+        op2 = decombPhyLeg(op2, allPhyDim)
+        return op2, entg
+    else:
+        op2 = mps.position(op2, pos, args, oldcenter=oldcenter, 
+        preserve_norm=True, compute_entg=False)
+        op2 = decombPhyLeg(op2, allPhyDim)
+        return op2
 
 def svd_nsite(n, tensor, dir, args):
     """
@@ -143,25 +149,25 @@ def gateTEvol(op, gateList, ttotal, tstep, args):
     op2 = position(op2, gateList[0].sites[0], args=args)
     oldcenter = 0
     for tt, g in product(range(nt), range(gateNum)):
-        gate2 = gateList[g].gate
+        gate = gateList[g].gate
         sites = gateList[g].sites
         # if gateList[g].sites[-1] < gateList[g].sites[0]:
         #     print("debug\n")
-        gate = np.conj(gate2)
+        gate2 = np.conj(gate)
         if len(sites) == 2:
             # contraction
             #
             #       a      c
             #      _|______|_
-            #      |        |
+            #      |        |       gate = exp(-iHt)
             #      -|------|-
             #       b      d
             #      _|_    _|_
-            #  i --| |-k--| |--j
+            #  i --| |-k--| |--j    op
             #      -|-    -|-
             #       e      g
             #      _|______|_
-            #      |        |
+            #      |        |       gate2 = exp(+iHt)
             #      -|------|-
             #       f      h
             #
@@ -208,7 +214,7 @@ def gateTEvol(op, gateList, ttotal, tstep, args):
             #
             #       a      c      e      g
             #      _|______|______|______|_
-            #      |                      |
+            #      |                      |         gate = exp(-iHt)
             #      -|------|------|------|-
             #       b      d      f      h
             #      _|_    _|_    _|_    _|_
@@ -216,7 +222,7 @@ def gateTEvol(op, gateList, ttotal, tstep, args):
             #      -|-    -|-    -|-    -|-
             #       s      u      w      y
             #      _|______|______|______|_
-            #      |                      |
+            #      |                      |         gate2 = exp(+iHt)
             #      -|------|------|------|-
             #       t      v      x      z
             #

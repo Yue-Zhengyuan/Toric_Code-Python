@@ -12,7 +12,7 @@ import para_dict as p
 import lattice as lat
 import mps
 import gnd_state
-from str_create import str_create, str_create2, selectRegion, convertToStrOp
+import str_create as crt
 import sys
 from copy import copy
 import time
@@ -28,27 +28,25 @@ args['hz'] = 0.0
 
 # create Toric Code ground state |psi>
 result_dir = sys.argv[1]
-# result_dir = "result_mps_2019_4_24_11_37"
-
-psi_dir = os.path.split(result_dir)[0]
-psi = np.load(psi_dir + "/psi.npy")
+nx = int(sys.argv[2])
+psi = np.load(result_dir + "/psi" + str(nx) + ".npy")
 psi = list(psi)
 
-resultfile = result_dir + '/dressed_result.txt'
+resultfile = result_dir + '/str_dressed_result.txt'
 with open(resultfile, 'w+') as file:
     pass
 
 # create string list (can handle both x-PBC and OBC)
-str_list = str_create(args, args['ny'] - 1)
+str_list = crt.str_create3(args, int(args['ny'])/2)
 
 # select string
-str_no = int(sys.argv[2])
-# str_no = -1
+# str_no = int(sys.argv[2])
+str_no = 0
 string = str_list[str_no]
-bond_on_str, area, circum = convertToStrOp(string, args)
+bond_on_str, area, circum = crt.convertToStrOp(string, args)
 bond_list = [lat.lat(bond_on_str[i][0:2], bond_on_str[i][2], (args['nx'], args['ny']), args['xperiodic']) for i in range(len(bond_on_str))]
 bond_list.sort()
-region = selectRegion(bond_on_str, 1, args)
+region = crt.selectRegion(bond_on_str, 1, args)
 
 # create string operator
 str_op = []
@@ -74,6 +72,9 @@ for hz in tqdm(iterlist):
     gateList = gates.makeGateList(args['real_n'], args, region=region)
     psi = mps.gateTEvol(psi, gateList, timestep, args['tau'], args=args)
 tend = time.perf_counter()
+# save new ground state
+psi_save = np.asarray(psi)
+np.save(result_dir + "/quasi_str_psi" + str(nx) + ".npy", psi_save)
 
 result = mps.matElem(psi, str_op, psi)
 

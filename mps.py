@@ -305,7 +305,7 @@ def matElem(psi1, op, psi2, verbose=False):
     """
     # site number check
     if (len(psi1) != len(op) or len(psi2) != len(op)):
-        # print(len(psi1), len(psi2), len(op), sep='\t')
+        print(len(psi1), len(psi2), len(op), sep='\t')
         sys.exit('Number of sites of MPS and MPO do not match.')
     # dimension check
     siteNum = len(op)

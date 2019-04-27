@@ -12,7 +12,6 @@ import para_dict as p
 import lattice as lat
 import mps
 import gnd_state
-from str_create import str_create, str_create2
 import sys
 from copy import copy
 import time
@@ -25,9 +24,6 @@ from tqdm import tqdm
 args = copy(p.args)
 # clear magnetic field
 args['hz'] = 0.0
-
-# create string list (can handle both x-PBC and OBC)
-str_list = str_create2(args, args['ny'] - 1)
 
 # create Toric Code ground state |psi>
 psi = gnd_state.gnd_state_builder(args)

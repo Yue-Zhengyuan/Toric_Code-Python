@@ -30,7 +30,7 @@ args['hz'] = 0.0
 str_list = str_create2(args, args['ny'] - 1)
 
 # save parameters
-result_dir = "result_mps_2019_4_24_18_31/"
+result_dir = "result_mps_2019_4_25_19_37/"
 psi = np.load(result_dir + 'psi.npy')
 psi = list(psi)
 

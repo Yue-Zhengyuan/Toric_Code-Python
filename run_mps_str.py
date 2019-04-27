@@ -64,7 +64,7 @@ python = "~/anaconda3/bin/python"
 # 3 -> outfile dir
 
 for i in used_str:
-    command = python + " mps_quasi_evol.py "
+    command = python + " mps_quasi_evol_str.py "
     command += result_dir + " " + str(i)
     command += " > " + outdir + "outfile_quasi_" + str(i)
     command += " 2>&1 &"

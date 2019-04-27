@@ -24,6 +24,9 @@ dev/
 # Ignore all local history of files
 .history
 
+### Mathematica ###
+*.nb
+
 ### Python ###
 # Byte-compiled / optimized / DLL files
 __pycache__/
