@@ -27,7 +27,7 @@ args = copy(p.args)
 # clear magnetic field
 args['hz'] = 0.0
 
-result_dir = "result_mpo_pair/"
+result_dir = "test_hz_2/"
 op = np.load(result_dir + 'adiab_op_6by20_10.npy')
 op = list(op)
 entg_file = result_dir + '/entg_6by20_10.txt'

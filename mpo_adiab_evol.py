@@ -7,34 +7,34 @@
 #
 
 import numpy as np
-import gates
+import gates, mps, mpo, gnd_state
 import para_dict as p
 import lattice as lat
-import mps
-import mpo
-import gnd_state
 import str_create as crt
-import sys
-import copy
-import time
-import datetime
-import os
-import json
-import ast
+import os, sys, time, datetime, json, ast
+from copy import copy
 from tqdm import tqdm
 
-args = copy.copy(p.args)
-hz_max = args['hz']
-# create result directory
-# result_dir = sys.argv[1]
-result_dir = "test_hz_" + str(hz_max) + "/"
-# nowtime = datetime.datetime.now()
-# result_dir = '_'.join(['result_mpo', str(nowtime.year), str(nowtime.month), 
-# str(nowtime.day), str(nowtime.hour), str(nowtime.minute)])
-os.makedirs(result_dir, exist_ok=True)
+args = copy(p.args)
 
-# args['nx'] = int(sys.argv[2])
-args['nx'] = 6
+# get arguments from command line
+if len(sys.argv) > 1:   # executed by the "run..." file
+    result_dir = sys.argv[1]
+    args['nx'] = int(sys.argv[2])
+    sep = int(sys.argv[3])
+    args['hz'] = float(sys.argv[4])
+else:
+    nowtime = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')
+    result_dir = "mpopair_adiab_" + nowtime + "/"
+    args['nx'] = 6
+    sep = int(args['ny']/2)
+    hz_max = args['hz']
+    os.makedirs(result_dir, exist_ok=True)
+    # save parameters
+    with open(result_dir + '/parameters.txt', 'w+') as file:
+        pass
+
+# modify total number of sites
 n = 2 * (args['nx'] - 1) * args['ny']
 # Y-non-periodic
 n -= args['nx'] - 1
@@ -47,10 +47,8 @@ if args['xperiodic'] == True:
 else:
     args['real_n'] = n
 
-# create closed string operator MPO enclosing different area(S)
-str_sep = int(args['ny']/2)
-# str_sep = int(sys.argv[3])
-closed_str_list = crt.str_create3(args, str_sep)
+# create string operator pair (x-PBC) MPO enclosing different area
+closed_str_list = crt.str_create3(args, sep)
 string = closed_str_list[0]
 bond_on_str, area, circum = crt.convertToStrOp(string, args)
 bond_list = [lat.lat(bond_on_str[i][0:2], bond_on_str[i][2], (args['nx'], args['ny']), args['xperiodic']) for i in range(len(bond_on_str))]
@@ -65,19 +63,17 @@ for i in bond_list:
 
 # save parameters
 with open(result_dir + '/parameters.txt', 'a+') as file:
-    file.write(json.dumps(args) + '\n')  # use json.loads to do the reverse
+    file.write(json.dumps(args) + '\n\n')  # use json.loads to do the reverse
     # Output information
-    file.write(str(area) + '\t' + str(circum) + '\n')
-    file.write("bond on str: \n" + str(bond_on_str) + '\n')
-    file.write("bond number: \n" + str(bond_list) + '\n')
-    file.write("bond within distance 1: \n" + str(region) + '\n\n')
-
-tstart = time.perf_counter()
+    info = "area: {}\ncircumference: {}\nbond on str:\n{}\nbond number:\n{}\n\n".format\
+        (area, circum, bond_on_str, bond_list)
+    file.write(info)
 
 # adiabatic evolution (Heisenberg picture): 
 # exp(+iH't) S exp(-iH't) - hz decreasing
+hz_max = args['hz']
 stepNum = int(p.args['ttotal']/p.args['tau'])
-iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
+iterlist = np.linspace(0, hz_max, num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 iterlist = np.flip(iterlist)
 timestep = args['ttotal']/stepNum
@@ -85,9 +81,7 @@ for hz in tqdm(iterlist):
     args['hz'] = hz
     gateList = gates.makeGateList(len(str_op), args)
     str_op = mpo.gateTEvol(str_op, gateList, timestep, timestep, args=args)
-tend = time.perf_counter()
-
 # save string operator
 op_save = np.asarray(str_op)
-np.save(result_dir + "/adiab_op_" + str(args['nx']) + 
-'by' + str(args['ny']) + '_' + str(str_sep) + ".npy", op_save)
+filename = "adiab_op_{}by{}_sep-{}_hz-{:.2f}".format(args['nx'], args['ny'], sep, hz_max)
+np.save(result_dir + filename, op_save)

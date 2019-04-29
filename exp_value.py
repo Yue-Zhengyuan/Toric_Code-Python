@@ -1,9 +1,9 @@
 # 
-#   main_mps.py
+#   exp_value.py
 #   Toric_Code-Python
-#   apply the Trotter gates to MPS
+#   calculate expectation value of string operator at ground state
 #
-#   created on Feb 18, 2019 by Yue Zhengyuan
+#   created on Apr 28, 2019 by Yue Zhengyuan
 #
 
 import numpy as np
@@ -12,7 +12,7 @@ import para_dict as p
 import lattice as lat
 import mps
 import gnd_state
-from str_create import str_create3,selectRegion,convertToStrOp
+import str_create as crt
 import sys
 from copy import copy
 import time
@@ -23,16 +23,14 @@ import ast
 from tqdm import tqdm
 
 args = copy(p.args)
-args['ny'] = 30
-
 # save parameters
-str_sep = int(args['ny']/2) + 4
-result_dir = "result_PBC/x_by_30/"
+str_sep = int(args['ny']/2)
+result_dir = "mps_adiab_2019-04-29_15-19/"
 resultfile = result_dir + 'undressed_result' + str(str_sep) + '.txt'
 with open(resultfile, 'w+') as file:
     pass
 
-for nx in tqdm(range(3,8)):
+for nx in tqdm(range(5,6)):
     args['nx'] = nx
     n = 2 * (args['nx'] - 1) * args['ny']
     # Y-non-periodic
@@ -47,14 +45,14 @@ for nx in tqdm(range(3,8)):
         args['real_n'] = n
 
     # create string list (can handle both x-PBC and OBC)
-    string = str_create3(args, str_sep)[0]
-
-    psi = np.load(result_dir + 'psi' + str(nx) + '.npy')
+    string = crt.str_create3(args, str_sep)[0]
+    psi_name = result_dir + "mps_{}by{}_hz-{:.2f}.npy".format(args['nx'], args['ny'], 0.3)
+    psi = np.load(psi_name)
     psi = list(psi)
 
     # apply undressed string
     # <psi| exp(+iHt) S exp(-iHt) |psi>
-    bond_on_str, area, circum = convertToStrOp(string, args)
+    bond_on_str, area, circum = crt.convertToStrOp(string, args)
     bond_list = [lat.lat(bond_on_str[i][0:2], bond_on_str[i][2], (args['nx'], args['ny']), args['xperiodic']) for i in range(len(bond_on_str))]
     # create string operator
     str_op = []

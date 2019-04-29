@@ -142,8 +142,8 @@ def str_create3(args, dy):
     mid_y = int(args['ny'] / 2)
     mid_x = int(args['nx'] / 2)
     # initial value
-    y1 = mid_y - 2
-    y2 = mid_y - 1
+    y1 = mid_y - 1
+    y2 = mid_y
     str_sep = 1
     while str_sep <= dy:
         if str_sep == 1:

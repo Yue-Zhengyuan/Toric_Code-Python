@@ -1,59 +1,55 @@
 # 
-#   state_adiab_evol.py
+#   mps_adiab_evol.py
 #   Toric_Code-Python
-#   create ground state after turning on perturbation
+#   create ground state (under perturbation) via adiabatic evolution
 #
 #   created on Feb 18, 2019 by Yue Zhengyuan
 #
 
 import numpy as np
-import gates
+import gates, mps, gnd_state
 import para_dict as p
 import lattice as lat
-import mps
-import gnd_state
-import sys
+import os, sys, time, datetime, json, ast
 from copy import copy
-import time
-import datetime
-import os
-import json
-import ast
 from tqdm import tqdm
 
 args = copy(p.args)
 
-result_dir = sys.argv[1]
-# hz_max = p.args['hz']
-hz_max = float(sys.argv[2])
-
-# # create result directory
-# # get system time
-# nowtime = datetime.datetime.now()
-# result_dir = '_'.join(['result_mps', str(nowtime.year), str(nowtime.month), 
-# str(nowtime.day), str(nowtime.hour), str(nowtime.minute)])
-# os.makedirs(result_dir, exist_ok=True)
+# get arguments from command line
+if len(sys.argv) > 1:   # executed by the "run..." file
+    result_dir = sys.argv[1]
+    args['nx'] = int(sys.argv[2])
+    # save parameters
+    with open(result_dir + '/parameters.txt', 'a+') as file:
+        file.write(json.dumps(args) + '\n')  # use json.loads to do the reverse
+else:
+    nowtime = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')
+    result_dir = "mps_adiab_" + nowtime + "/"
+    # use default args['nx']
+    os.makedirs(result_dir, exist_ok=True)
+    # save parameters
+    with open(result_dir + '/parameters.txt', 'w+') as file:
+        file.write(json.dumps(args) + '\n\n')  # use json.loads to do the reverse
 
 # create Toric Code ground state |psi>
 psi = gnd_state.gnd_state_builder(args)
 
 # adiabatic evolution: exp(-iHt)|psi> (With field along z)
-print("Adiabatic Evolution")
-tstart = time.perf_counter()
+hz_max = args['hz']
 stepNum = int(p.args['ttotal']/p.args['tau'])
 iterlist = np.linspace(0, hz_max, num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 timestep = args['ttotal']/stepNum
+step = 0
 for hz in tqdm(iterlist):
     args['hz'] = hz
     gateList = gates.makeGateList(args['real_n'], args)
     psi = mps.gateTEvol(psi, gateList, timestep, args['tau'], args=args)
-tend = time.perf_counter()
-
-# save parameters
-with open(result_dir + '/parameters.txt', 'a+') as file:
-    file.write(json.dumps(args) + '\n')  # use json.loads to do the reverse
-# save new ground state
-psi_save = np.asarray(psi)
-np.save(result_dir + '/psi' + '_hz_' + str(hz_max), psi_save)
+    step += 1
+    # save new ground state
+    if step % int(stepNum / 4) == 0:
+        psi_save = np.asarray(psi)
+        filename = "mps_{}by{}_hz-{:.2f}".format(args['nx'], args['ny'], hz)
+        np.save(result_dir + filename, psi_save)
     

@@ -26,20 +26,24 @@ from tqdm import tqdm
 args = copy.copy(p.args)
 hz_max = args['hz']
 
-# create result directory
-# result_dir = sys.argv[1]
-result_dir = "test_hz_" + str(hz_max) + "/"
-# nowtime = datetime.datetime.now()
-# result_dir = '_'.join(['result_mpo', str(nowtime.year), str(nowtime.month), 
-# str(nowtime.day), str(nowtime.hour), str(nowtime.minute)])
-os.makedirs(result_dir, exist_ok=True)
-# save parameters
-with open(result_dir + '/parameters.txt', 'w+') as file:
-    file.write(json.dumps(p.args) + '\n')  # use json.loads to do the reverse
+# get arguments from command line
+if len(sys.argv) > 1:   # executed by the "run..." file
+    result_dir = sys.argv[1]
+    args['nx'] = int(sys.argv[2])
+    str_sep = int(sys.argv[3])
+else:
+    result_dir = "test_hz_" + str(hz_max) + "/"
+    nowtime = datetime.datetime.now()
+    result_dir = '_'.join(['result_mpo', str(nowtime.year), str(nowtime.month), 
+    str(nowtime.day), str(nowtime.hour), str(nowtime.minute)])
+    args['nx'] = 6
+    str_sep = int(args['ny']/2)
+    os.makedirs(result_dir, exist_ok=True)
+    # save parameters
+    with open(result_dir + '/parameters.txt', 'w+') as file:
+        file.write(json.dumps(p.args) + '\n')  # use json.loads to do the reverse
 
 # create closed string operator MPO enclosing different area(S)
-str_sep = int(args['ny']/2)
-# str_sep = int(sys.argv[3])
 closed_str_list = crt.str_create3(args, str_sep)
 string = closed_str_list[0]
 bond_on_str, area, circum = crt.convertToStrOp(string, args)
@@ -77,7 +81,7 @@ for hz in tqdm(iterlist):
 tend = time.perf_counter()
 # save string operator
 op_save = np.asarray(str_op)
-np.save(result_dir + "/quasi_op.npy", op_save)
+np.save(result_dir + "/quasi_op", op_save)
 
 # adiabatic evolution (Heisenberg picture): 
 # exp(+iH't) S exp(-iH't) - hz decreasing
@@ -93,4 +97,4 @@ for hz in tqdm(iterlist):
 tend = time.perf_counter()
 # save string operator
 op_save = np.asarray(str_op)
-np.save(result_dir + "/final_op.npy", op_save)
+np.save(result_dir + "/final_op", op_save)

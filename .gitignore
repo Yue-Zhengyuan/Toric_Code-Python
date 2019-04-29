@@ -3,7 +3,8 @@
 # Edit at https://www.gitignore.io/?templates=python
 
 ### Program results ###
-result*/
+mpopair*/
+mps*/
 benchmark*/
 outfile*
 figures/
