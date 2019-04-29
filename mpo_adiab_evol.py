@@ -1,9 +1,9 @@
 # 
-#   main_mpo.py
+#   mpo_adiab_evol.py
 #   Toric_Code-Python
-#   apply the gates to MPO and monitoring entanglement
+#   adiabatic evolution of the string operator MPO
 #
-#   created on Feb 18, 2019 by Yue Zhengyuan
+#   created on Apr 27, 2019 by Yue Zhengyuan
 #
 
 import numpy as np
@@ -24,16 +24,17 @@ import ast
 from tqdm import tqdm
 
 args = copy.copy(p.args)
-
-
+hz_max = args['hz']
 # create result directory
-result_dir = sys.argv[1]
+# result_dir = sys.argv[1]
+result_dir = "test_hz_" + str(hz_max) + "/"
 # nowtime = datetime.datetime.now()
 # result_dir = '_'.join(['result_mpo', str(nowtime.year), str(nowtime.month), 
 # str(nowtime.day), str(nowtime.hour), str(nowtime.minute)])
 os.makedirs(result_dir, exist_ok=True)
 
-args['nx'] = int(sys.argv[2])
+# args['nx'] = int(sys.argv[2])
+args['nx'] = 6
 n = 2 * (args['nx'] - 1) * args['ny']
 # Y-non-periodic
 n -= args['nx'] - 1
@@ -47,8 +48,8 @@ else:
     args['real_n'] = n
 
 # create closed string operator MPO enclosing different area(S)
-# str_sep = int(args['ny']/2)
-str_sep = int(sys.argv[3])
+str_sep = int(args['ny']/2)
+# str_sep = int(sys.argv[3])
 closed_str_list = crt.str_create3(args, str_sep)
 string = closed_str_list[0]
 bond_on_str, area, circum = crt.convertToStrOp(string, args)
@@ -73,20 +74,20 @@ with open(result_dir + '/parameters.txt', 'a+') as file:
 
 tstart = time.perf_counter()
 
-# adiabatic evolution: 
-# exp(+iH't) S exp(-iH't)
+# adiabatic evolution (Heisenberg picture): 
+# exp(+iH't) S exp(-iH't) - hz decreasing
 stepNum = int(p.args['ttotal']/p.args['tau'])
 iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
+iterlist = np.flip(iterlist)
 timestep = args['ttotal']/stepNum
-args['g'] *= -1
-# for hz in tqdm(iterlist):
-#     args['hz'] = -hz
-#     gateList = gates.makeGateList(len(str_op), args)
-#     str_op = mpo.gateTEvol(str_op, gateList, timestep, timestep, args=args)
+for hz in tqdm(iterlist):
+    args['hz'] = hz
+    gateList = gates.makeGateList(len(str_op), args)
+    str_op = mpo.gateTEvol(str_op, gateList, timestep, timestep, args=args)
 tend = time.perf_counter()
 
 # save string operator
 op_save = np.asarray(str_op)
-np.save(result_dir + "/adiab_op" + str(args['nx']) + 
+np.save(result_dir + "/adiab_op_" + str(args['nx']) + 
 'by' + str(args['ny']) + '_' + str(str_sep) + ".npy", op_save)

@@ -125,6 +125,7 @@ def svd_nsite(n, tensor, dir, args):
 def gateTEvol(op, gateList, ttotal, tstep, args):
     """
     Perform time evolution to MPO using Trotter gates
+    Heisenberg picture: O(dt) = exp(+iH dt) O(0) exp(-iH dt)
 
     Parameters
     ----------
@@ -149,17 +150,17 @@ def gateTEvol(op, gateList, ttotal, tstep, args):
     op2 = position(op2, gateList[0].sites[0], args=args)
     oldcenter = 0
     for tt, g in product(range(nt), range(gateNum)):
-        gate = gateList[g].gate
+        gate2 = gateList[g].gate
         sites = gateList[g].sites
         # if gateList[g].sites[-1] < gateList[g].sites[0]:
         #     print("debug\n")
-        gate2 = np.conj(gate)
+        gate = np.conj(gate2)
         if len(sites) == 2:
             # contraction
             #
             #       a      c
             #      _|______|_
-            #      |        |       gate = exp(-iHt)
+            #      |        |       gate = exp(+iH dt)
             #      -|------|-
             #       b      d
             #      _|_    _|_
@@ -167,7 +168,7 @@ def gateTEvol(op, gateList, ttotal, tstep, args):
             #      -|-    -|-
             #       e      g
             #      _|______|_
-            #      |        |       gate2 = exp(+iHt)
+            #      |        |       gate2 = exp(-iH dt)
             #      -|------|-
             #       f      h
             #
@@ -180,33 +181,21 @@ def gateTEvol(op, gateList, ttotal, tstep, args):
                     result = svd_nsite(2, ten_AA, 'Fromleft', args=args)
                     for i in range(2):
                         op2[sites[i]] = result[i]
-                    # gate crosses boundary
-                    if gateList[g].sites[-1] < gateList[g].sites[0]:
-                        oldcenter = -1 # reset orthogonality center
-                    else:
-                        oldcenter = sites[-1]
+                    oldcenter = sites[-1]
                     op2 = position(op2, gateList[g+1].sites[0], args, oldcenter=oldcenter)
                     oldcenter = gateList[g+1].sites[0]
                 else:
                     result = svd_nsite(2, ten_AA, args=args, dir='Fromright')
                     for i in range(2):
                         op2[sites[i]] = result[i]
-                    # gate crosses boundary
-                    if gateList[g].sites[-1] < gateList[g].sites[0]:
-                        oldcenter = -1 # reset orthogonality center
-                    else:
-                        oldcenter = sites[0]
+                    oldcenter = sites[0]
                     op2 = position(op2, gateList[g+1].sites[-1], args, oldcenter=oldcenter)
                     oldcenter = gateList[g+1].sites[-1]
             else:
                 result = svd_nsite(2, ten_AA, 'Fromright', args=args)
                 for i in range(2):
                     op2[sites[i]] = result[i]
-                # gate crosses boundary
-                if gateList[g].sites[-1] < gateList[g].sites[0]:
-                    oldcenter = -1 # reset orthogonality center
-                else:
-                    oldcenter = sites[0]
+                oldcenter = sites[0]
                 op2 = position(op2, 0, args, oldcenter=oldcenter)
                 oldcenter = 0
         elif len(sites) == 4:
@@ -214,7 +203,7 @@ def gateTEvol(op, gateList, ttotal, tstep, args):
             #
             #       a      c      e      g
             #      _|______|______|______|_
-            #      |                      |         gate = exp(-iHt)
+            #      |                      |         gate = exp(+iH dt)
             #      -|------|------|------|-
             #       b      d      f      h
             #      _|_    _|_    _|_    _|_
@@ -222,7 +211,7 @@ def gateTEvol(op, gateList, ttotal, tstep, args):
             #      -|-    -|-    -|-    -|-
             #       s      u      w      y
             #      _|______|______|______|_
-            #      |                      |         gate2 = exp(+iHt)
+            #      |                      |         gate2 = exp(-iH dt)
             #      -|------|------|------|-
             #       t      v      x      z
             #
@@ -232,44 +221,31 @@ def gateTEvol(op, gateList, ttotal, tstep, args):
             gate, ten_AAAA, optimize=True)
             ten_AAAA = np.einsum('iascuewgym,stuvwxyz->iatcvexgzm',
             ten_AAAA, gate2, optimize=True)
-            if g < gateNum:
+            if g < gateNum - 1:
                 if gateList[g+1].sites[0] >= gateList[g].sites[-1]:
                     result = svd_nsite(4, ten_AAAA, 'Fromleft', args=args)
                     for i in range(4):
                         op2[sites[i]] = result[i]
-                    # gate crosses boundary
-                    if gateList[g].sites[-1] < gateList[g].sites[0]:
-                        oldcenter = -1 # reset orthogonality center
-                    else:
-                        oldcenter = sites[-1]
+                    oldcenter = sites[-1]
                     op2 = position(op2, gateList[g+1].sites[0], args, oldcenter=oldcenter)
                     oldcenter = gateList[g+1].sites[0]
                 else:
                     result = svd_nsite(4, ten_AAAA, 'Fromright',args=args)
                     for i in range(4):
                         op2[sites[i]] = result[i]
-                    # gate crosses boundary
-                    if gateList[g].sites[-1] < gateList[g].sites[0]:
-                        oldcenter = -1 # reset orthogonality center
-                    else:
-                        oldcenter = sites[0]
+                    oldcenter = sites[0]
                     op2 = position(op2, gateList[g+1].sites[-1], args, oldcenter=oldcenter)
                     oldcenter = gateList[g+1].sites[-1]
             else:
                 result = svd_nsite(4, ten_AAAA, 'Fromright', args=args)
                 for i in range(4):
                     op2[sites[i]] = result[i]
-                # gate crosses boundary
-                    if gateList[g].sites[-1] < gateList[g].sites[0]:
-                        oldcenter = -1 # reset orthogonality center
-                    else:
-                        oldcenter = sites[0]
+                oldcenter = sites[0]
                 op2 = position(op2, 0, args, oldcenter=oldcenter)
                 oldcenter = 0
         # error handling
         else:
             sys.exit('Wrong number of sites of gate')
-    # return not normalized MPO op2
     return op2
 
 def sum(op1, op2, args, compress="svd"):

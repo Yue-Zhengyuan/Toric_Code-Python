@@ -19,16 +19,17 @@ import numpy as np
 from copy import copy
 from str_create import selectRegion
 
-args = copy(p.args)
 # create result directory
 # get path to psi.npy via command line
-result_dir = "result_PBC/x_by_20/"
+result_dir = "hz_test/"
 
 outdir = result_dir + 'outfile/'
 os.makedirs(result_dir, exist_ok=True)
 os.makedirs(outdir, exist_ok=True)
 parafile = result_dir + 'parameters.txt'
-resultfile = result_dir + 'dressed_result.txt'
+
+with open(parafile, 'w+') as file:
+    pass
 
 python = "~/anaconda3/bin/python"
 # python = "python3"
@@ -38,10 +39,11 @@ python = "~/anaconda3/bin/python"
 # 2 -> No. of the string operator
 # 3 -> outfile dir
 
-for i in range(4,8):
-    command = python + " mps_quasi_evol_all.py "
-    command += result_dir + " " + str(i)
-    command += " > " + outdir + "outfile_quasi_" + str(i)
+for hz_max in np.linspace(0.1, 0.4, num=4, endpoint=True):
+    hz_max = np.around(hz_max, decimals=1)
+    command = python + " mps_adiab_evol.py "
+    command += result_dir + " " + str(hz_max)
+    command += " > " + outdir + "outfile_quasi_" + str(hz_max)
     command += " 2>&1 &"
     os.system(command)
 

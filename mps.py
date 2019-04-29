@@ -383,7 +383,7 @@ def gateTEvol(psi, gateList, ttotal, tstep, args):
                 #
                 #       a      c
                 #      _|______|_
-                #      |        |
+                #      |        |       gate = exp(-iH dt)
                 #      -|------|-
                 #       b      d
                 #      _|_    _|_
@@ -420,7 +420,7 @@ def gateTEvol(psi, gateList, ttotal, tstep, args):
                 #
                 #       a      c      e      g
                 #      _|______|______|______|_
-                #      |                      |
+                #      |                      |         gate = exp(-iH dt)
                 #      -|------|------|------|-
                 #       b      d      f      h
                 #      _|_    _|_    _|_    _|_

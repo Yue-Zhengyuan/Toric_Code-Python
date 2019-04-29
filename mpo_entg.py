@@ -27,13 +27,14 @@ args = copy(p.args)
 # clear magnetic field
 args['hz'] = 0.0
 
-result_dir = "result_mpo_2019_4_27_21_20/"
-op = np.load(result_dir + 'adiab_op5.npy')
+result_dir = "result_mpo_pair/"
+op = np.load(result_dir + 'adiab_op_6by20_10.npy')
 op = list(op)
-with open(result_dir + '/entg_entropy.txt', 'w+') as file:
+entg_file = result_dir + '/entg_6by20_10.txt'
+with open(entg_file, 'w+') as file:
     pass
 
 for site in tqdm(range(len(op))):
     op, entg = mpo.position(op, site, args, oldcenter=site - 1, compute_entg=True)
-    with open(result_dir + '/entg_entropy.txt', 'a+') as file:
+    with open(entg_file, 'a+') as file:
         file.write(str(site) + '\t' + str(entg) + '\n')

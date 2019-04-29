@@ -22,8 +22,17 @@ import ast
 from tqdm import tqdm
 
 args = copy(p.args)
-# clear magnetic field
-args['hz'] = 0.0
+
+result_dir = sys.argv[1]
+# hz_max = p.args['hz']
+hz_max = float(sys.argv[2])
+
+# # create result directory
+# # get system time
+# nowtime = datetime.datetime.now()
+# result_dir = '_'.join(['result_mps', str(nowtime.year), str(nowtime.month), 
+# str(nowtime.day), str(nowtime.hour), str(nowtime.minute)])
+# os.makedirs(result_dir, exist_ok=True)
 
 # create Toric Code ground state |psi>
 psi = gnd_state.gnd_state_builder(args)
@@ -32,30 +41,19 @@ psi = gnd_state.gnd_state_builder(args)
 print("Adiabatic Evolution")
 tstart = time.perf_counter()
 stepNum = int(p.args['ttotal']/p.args['tau'])
-iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
+iterlist = np.linspace(0, hz_max, num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 timestep = args['ttotal']/stepNum
 for hz in tqdm(iterlist):
-# for hz in iterlist:
     args['hz'] = hz
     gateList = gates.makeGateList(args['real_n'], args)
     psi = mps.gateTEvol(psi, gateList, timestep, args['tau'], args=args)
 tend = time.perf_counter()
 
-# create result directory
-# get system time
-nowtime = datetime.datetime.now()
-result_dir = '_'.join(['result_mps', str(nowtime.year), str(nowtime.month), 
-str(nowtime.day), str(nowtime.hour), str(nowtime.minute)])
-os.makedirs(result_dir, exist_ok=True)
-
 # save parameters
-with open(result_dir + '/parameters.txt', 'w+') as file:
-    file.write(json.dumps(args))  # use json.loads to do the reverse
-    file.write("\nAdiabatic evolution: " + str(tend-tstart) + " s\n")
-    file.write('\nUsing String Operators:\n')
-
+with open(result_dir + '/parameters.txt', 'a+') as file:
+    file.write(json.dumps(args) + '\n')  # use json.loads to do the reverse
 # save new ground state
 psi_save = np.asarray(psi)
-np.save(result_dir + '/psi', psi_save)
+np.save(result_dir + '/psi' + '_hz_' + str(hz_max), psi_save)
     

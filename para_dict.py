@@ -12,7 +12,7 @@ import numpy as np
 # current convention:
 # for the same system width (x)
 # x_PBC = x_OBC - 1 (will be fixed in the future if time allows)
-args = {'nx': 5, 'ny': 20, 
+args = {'nx': 6, 'ny': 20, 
 'U': 0, 'g': 1.0, 
 'hz': 0.4, 
 'xperiodic': True,

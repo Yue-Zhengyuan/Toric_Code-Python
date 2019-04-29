@@ -25,8 +25,8 @@ result_dir = sys.argv[1]
 # result_dir = "result_mps_2019_4_24_18_31/"
 os.makedirs(result_dir, exist_ok=True)
 
-str_sep_list = [6, 10, 14]
-sys_size_list = range(3,8)
+str_sep_list = range(2, p.args['ny'], 2)
+sys_size_list = range(6, 7)
 
 with open(result_dir + '/parameters.txt', 'w+') as file:
     pass
