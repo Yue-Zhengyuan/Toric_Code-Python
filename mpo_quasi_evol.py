@@ -7,50 +7,54 @@
 #
 
 import numpy as np
-import gates
+import gates, mps, mpo, gnd_state
 import para_dict as p
 import lattice as lat
-import mps
-import mpo
-import gnd_state
 import str_create as crt
-import sys
-import copy
-import time
-import datetime
-import os
-import json
-import ast
+import os, sys, time, datetime, json, ast
+from copy import copy
 from tqdm import tqdm
 
-args = copy.copy(p.args)
-hz_max = args['hz']
+args = copy(p.args)
 
 # get arguments from command line
 if len(sys.argv) > 1:   # executed by the "run..." file
     result_dir = sys.argv[1]
     args['nx'] = int(sys.argv[2])
-    str_sep = int(sys.argv[3])
+    sep = int(sys.argv[3])
+    width = 2
 else:
-    result_dir = "test_hz_" + str(hz_max) + "/"
-    nowtime = datetime.datetime.now()
-    result_dir = '_'.join(['result_mpo', str(nowtime.year), str(nowtime.month), 
-    str(nowtime.day), str(nowtime.hour), str(nowtime.minute)])
-    args['nx'] = 6
-    str_sep = int(args['ny']/2)
+    nowtime = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')
+    result_dir = "mpopair_quasi_" + nowtime + "/"
+    # use default args['nx']
+    sep = 14
+    # use default args['hz']
+    width = 2
     os.makedirs(result_dir, exist_ok=True)
     # save parameters
     with open(result_dir + '/parameters.txt', 'w+') as file:
-        file.write(json.dumps(p.args) + '\n')  # use json.loads to do the reverse
+        pass
 
-# create closed string operator MPO enclosing different area(S)
-closed_str_list = crt.str_create3(args, str_sep)
+# modify total number of sites
+n = 2 * (args['nx'] - 1) * args['ny']
+# Y-non-periodic
+n -= args['nx'] - 1
+# X-non-periodic
+n += args['ny'] - 1
+args['n'] = n
+# n in case of periodic X
+if args['xperiodic'] == True:
+    args['real_n'] = n - (args['ny'] - 1)
+else:
+    args['real_n'] = n
+
+# create string operator pair (x-PBC) MPO enclosing different area
+closed_str_list = crt.str_create3(args, sep)
 string = closed_str_list[0]
 bond_on_str, area, circum = crt.convertToStrOp(string, args)
 bond_list = [lat.lat(bond_on_str[i][0:2], bond_on_str[i][2], (args['nx'], args['ny']), args['xperiodic']) for i in range(len(bond_on_str))]
-region = crt.selectRegion(bond_on_str, 1, args)
+region = crt.selectRegion2(bond_on_str, width, args)
 
-# create string operator
 str_op = []
 for i in range(args['real_n']):
     str_op.append(np.reshape(p.iden, (1,2,2,1)))
@@ -61,40 +65,42 @@ for i in bond_list:
 with open(result_dir + '/parameters.txt', 'a+') as file:
     file.write(json.dumps(args) + '\n')  # use json.loads to do the reverse
     # Output information
-    file.write(str(area) + '\t' + str(circum) + '\n')
-    file.write("bond on str: \n" + str(bond_on_str) + '\n')
-    file.write("bond number: \n" + str(bond_list) + '\n')
-    file.write("bond within distance 1: \n" + str(region) + '\n\n')
+    file.write("area: {}\ncircumference: {}\n".format(area, circum))
+    file.write("bond on str: \n{}\n".format(bond_on_str))
+    file.write("bond number: \n{}\n".format(bond_list))
+    file.write("bond within distance {}: \n{}\n\n".format(width, region))
 
-tstart = time.perf_counter()
 # quasi-adiabatic evolution (using Hamiltonian in the selected region): 
 # S' = exp(-iH't) S exp(+iH't) - hz increasing
+hz_max = args['hz']
 stepNum = int(p.args['ttotal']/p.args['tau'])
-iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
+iterlist = np.linspace(0, hz_max, num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 timestep = args['ttotal']/stepNum
-args['g'] *= -1
+args['g'] = -p.args['g']
 for hz in tqdm(iterlist):
     args['hz'] = -hz
     gateList = gates.makeGateList(len(str_op), args, region=region)
     str_op = mpo.gateTEvol(str_op, gateList, timestep, timestep, args=args)
-tend = time.perf_counter()
 # save string operator
 op_save = np.asarray(str_op)
-np.save(result_dir + "/quasi_op", op_save)
+filename = "quasi_op_{}by{}_sep-{}_hz-{:.2f}".format(args['nx'], args['ny'], sep, hz_max)
+np.save(result_dir + filename, op_save)
 
 # adiabatic evolution (Heisenberg picture): 
 # exp(+iH't) S exp(-iH't) - hz decreasing
 stepNum = int(p.args['ttotal']/p.args['tau'])
-iterlist = np.linspace(0, p.args['hz'], num = stepNum+1, dtype=float)
+iterlist = np.linspace(0, hz_max, num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 iterlist = np.flip(iterlist)
 timestep = args['ttotal']/stepNum
+# restore g
+args['g'] = p.args['g']
 for hz in tqdm(iterlist):
     args['hz'] = hz
     gateList = gates.makeGateList(len(str_op), args)
     str_op = mpo.gateTEvol(str_op, gateList, timestep, timestep, args=args)
-tend = time.perf_counter()
 # save string operator
 op_save = np.asarray(str_op)
-np.save(result_dir + "/final_op", op_save)
+filename = "final_op_{}by{}_sep-{}_hz-{:.2f}".format(args['nx'], args['ny'], sep, hz_max)
+np.save(result_dir + filename, op_save)

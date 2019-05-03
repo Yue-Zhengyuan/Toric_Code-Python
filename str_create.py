@@ -265,3 +265,46 @@ def selectRegion(string, width, args):
     region = np.asarray(region, dtype=int)
     region = np.unique(region)
     return region
+
+def selectRegion2(string, width, args):
+    """
+    select a region within width from the given x-string
+    (for x-PBC use only)
+
+    Parameters
+    -----------------
+    string : list of bonds
+        bonds on the string operator
+    width : int
+        width of the spreading from string operator
+    size : (int, int)
+        linear size of the lattice system
+    """
+    region = []
+    size = [args['nx'], args['ny']]
+    xperiodic = args['xperiodic']
+    if xperiodic == False:
+        sys.exit("selectRegion2 recognizes x-PBC only")
+    for bond in string:
+        x, y, dir = bond[0], bond[1], bond[2]
+        # add the plaquette above/below this bond
+        above = [(x,y,'r')]
+        below = [(x,y,'r')]
+        for d in range(width):
+            above.append((x,   y-d-1, 'r'))
+            above.append((x,   y-d-1, 'd'))
+            above.append((x+1, y-d-1, 'd'))
+            below.append((x,   y+d+1, 'r'))
+            below.append((x,   y+d,   'd'))
+            below.append((x+1, y+d,   'd'))
+        if y == 0:              # upper boundary; add plq. below only
+            above = []
+        if y == size[1] - 1:    # lower boundary; add plq. above only
+            below = []                
+        for newbond in above: 
+            region.append(lat.lat(newbond[0:2], newbond[2], size, xperiodic))
+        for newbond in below:
+            region.append(lat.lat(newbond[0:2], newbond[2], size, xperiodic))
+    region = np.asarray(region, dtype=int)
+    region = np.unique(region)
+    return region

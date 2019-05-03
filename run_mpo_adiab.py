@@ -28,7 +28,7 @@ python = "~/anaconda3/bin/python"
 # create string list (can handle both x-PBC and OBC)
 sep_list = [6, 10, 14]
 nx_list = range(3, 8)
-hz_list = [0.1, 0.2, 0.4]
+hz_list = [p.args['hz']] # use default value
 for nx, sep, hz in product(nx_list, sep_list, hz_list):
     # command parameters
     # 0 -> result dir

@@ -26,9 +26,9 @@ if len(sys.argv) > 1:   # executed by the "run..." file
 else:
     nowtime = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')
     result_dir = "mpopair_adiab_" + nowtime + "/"
-    args['nx'] = 6
-    sep = int(args['ny']/2)
-    hz_max = args['hz']
+    # use default args['nx']
+    sep = 10
+    # use default args['hz']
     os.makedirs(result_dir, exist_ok=True)
     # save parameters
     with open(result_dir + '/parameters.txt', 'w+') as file:
@@ -52,9 +52,8 @@ closed_str_list = crt.str_create3(args, sep)
 string = closed_str_list[0]
 bond_on_str, area, circum = crt.convertToStrOp(string, args)
 bond_list = [lat.lat(bond_on_str[i][0:2], bond_on_str[i][2], (args['nx'], args['ny']), args['xperiodic']) for i in range(len(bond_on_str))]
-region = crt.selectRegion(bond_on_str, 1, args)
+# region = crt.selectRegion(bond_on_str, 1, args)
 
-# create string operator
 str_op = []
 for i in range(args['real_n']):
     str_op.append(np.reshape(p.iden, (1,2,2,1)))
@@ -63,11 +62,11 @@ for i in bond_list:
 
 # save parameters
 with open(result_dir + '/parameters.txt', 'a+') as file:
-    file.write(json.dumps(args) + '\n\n')  # use json.loads to do the reverse
+    file.write(json.dumps(args) + '\n')  # use json.loads to do the reverse
     # Output information
-    info = "area: {}\ncircumference: {}\nbond on str:\n{}\nbond number:\n{}\n\n".format\
-        (area, circum, bond_on_str, bond_list)
-    file.write(info)
+    file.write("area: {}\ncircumference: {}\n".format(area, circum))
+    file.write("bond on str: \n{}\n".format(bond_on_str))
+    file.write("bond number: \n{}\n".format(bond_list))
 
 # adiabatic evolution (Heisenberg picture): 
 # exp(+iH't) S exp(-iH't) - hz decreasing

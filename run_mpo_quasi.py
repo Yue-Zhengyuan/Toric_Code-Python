@@ -1,52 +1,41 @@
 # 
-#   run_mps.py
+#   run_mpo_adiab.py
 #   Toric_Code-Python
-#   run inverse quasi adiabatic evolution
+#   execute mpo_adiab_evol.py
 #
 #   created on Apr 24, 2019 by Yue Zhengyuan
 #
 
-import os
-import sys
-import time
-import datetime
+import os, sys, time, datetime, json
 import para_dict as p
-import json
-import ast
-import lattice as lat
-import str_create as crt
 import numpy as np
 from copy import copy
-from str_create import selectRegion
+from itertools import product
 
 # create result directory
-# get path to psi.npy via command line
-result_dir = sys.argv[1]
-# result_dir = "result_mps_2019_4_24_18_31/"
+nowtime = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')
+result_dir = "mpopair_quasi_" + nowtime + "/"
 os.makedirs(result_dir, exist_ok=True)
+out_dir = result_dir + 'outfile/'
+os.makedirs(out_dir, exist_ok=True)
 
-str_sep_list = range(2, p.args['ny'], 2)
-sys_size_list = range(6, 7)
-
-with open(result_dir + '/parameters.txt', 'w+') as file:
+# create parameter file
+parafile = result_dir + 'parameters.txt'
+with open(parafile, 'w+') as file:
     pass
 
 python = "~/anaconda3/bin/python"
-# python = "python3"
 # create string list (can handle both x-PBC and OBC)
-for nx in sys_size_list:
-    for str_sep in str_sep_list:
-        # command parameters
-        # 1 -> result dir
-        # 2 -> system size nx
-        # 3 -> string separation
-        # 4 -> outfile dir
-        command = python + " mpo_adiab_evol.py "
-        command += result_dir + " " + str(nx) + ' ' + str(str_sep)
-        command += " > " + result_dir + "outfile_" + str(nx) + '_' + str(str_sep)
-        command += " 2>&1 &"
-        os.system(command)
-
-# if no error occurs, remove the outfiles
-# condapy3 main_mps_pbc.py > outfile_mps_pbc 2>&1 &
+sep_list = [6, 10, 14]
+nx_list = range(3, 8)
+for nx, sep in product(nx_list, sep_list):
+    # command parameters
+    # 0 -> result dir
+    # 1 -> system size nx
+    # 2 -> string separation
+    # 3 -> max hz
+    # 4 -> outfile dir
+    command = python + " mpo_quasi_evol.py {0} {1} {2} > {3}outfile_{1}_{2} 2>&1 &".format(result_dir, nx, sep, out_dir)
+    os.system(command)
+# command format
 # python main_mpo_adiab.py > outfile_mpoadiab 2>&1 &

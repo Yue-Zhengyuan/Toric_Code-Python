@@ -327,7 +327,7 @@ def matElem(psi1, op, psi2, verbose=False):
     # 
     result = []
     if verbose:
-        print("Calculating matrix element: stage 1")
+        print("Calculating matrix element")
         iterlist = tqdm(range(siteNum))
     else:
         iterlist = range(siteNum)
@@ -335,17 +335,22 @@ def matElem(psi1, op, psi2, verbose=False):
         group = np.einsum('iaj,kabl,mbn->ikmjln', 
         np.conj(psi1[site]), op[site], psi2[site], optimize=True)
         result.append(group)
-    # full contraction
-    elem = result[0]
-    if verbose:
-        print("Calculating matrix element: stage 2")
-        iterlist = tqdm(np.arange(1, siteNum, 1, dtype=int))
-    else:
-        iterlist = np.arange(1, siteNum, 1, dtype=int)
-    for site in iterlist:
-        elem = np.tensordot(elem, result[site], axes=3)
-    elem = np.reshape(elem, 1)
-    return elem[0]
+        if site > 0:
+            result[0] = np.tensordot(result[0], group, axes=3)
+            del result[1]
+    result[0] = np.reshape(result[0], 1)
+    return result[0][0]
+    # # full contraction
+    # elem = result[0]
+    # if verbose:
+    #     print("Calculating matrix element: stage 2")
+    #     iterlist = tqdm(np.arange(1, siteNum, 1, dtype=int))
+    # else:
+    #     iterlist = np.arange(1, siteNum, 1, dtype=int)
+    # for site in iterlist:
+    #     elem = np.tensordot(elem, result[site], axes=3)
+    # elem = np.reshape(elem, 1)
+    # return elem[0]
 
 def gateTEvol(psi, gateList, ttotal, tstep, args):
     """

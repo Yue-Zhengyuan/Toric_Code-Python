@@ -25,7 +25,7 @@ with open(parafile, 'w+') as file:
     pass
 
 python = "~/anaconda3/bin/python"
-nx_list = range(6, 7)
+nx_list = range(3, 8)
 for nx in nx_list:
     # command parameters
     # 0 -> result dir
