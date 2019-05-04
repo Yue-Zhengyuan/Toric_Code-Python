@@ -22,31 +22,32 @@ if len(sys.argv) > 1:   # executed by the "run..." file
     result_dir = sys.argv[1]
     args['nx'] = int(sys.argv[2])
     sep = int(sys.argv[3])
-    width = 2
+    benchmark = bool(int(sys.argv[4]))
+    width = 3
+    # modify total number of sites
+    n = 2 * (args['nx'] - 1) * args['ny']
+    # Y-non-periodic
+    n -= args['nx'] - 1
+    # X-non-periodic
+    n += args['ny'] - 1
+    args['n'] = n
+    # n in case of periodic X
+    if args['xperiodic'] == True:
+        args['real_n'] = n - (args['ny'] - 1)
+    else:
+        args['real_n'] = n
 else:
     nowtime = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')
     result_dir = "mpopair_quasi_" + nowtime + "/"
-    # use default args['nx']
-    sep = 14
-    # use default args['hz']
-    width = 2
+    # use default p.args['nx']
+    sep = 10
+    # use default p.args['hz']
+    width = 3
     os.makedirs(result_dir, exist_ok=True)
+    benckmark = False
     # save parameters
     with open(result_dir + '/parameters.txt', 'w+') as file:
         pass
-
-# modify total number of sites
-n = 2 * (args['nx'] - 1) * args['ny']
-# Y-non-periodic
-n -= args['nx'] - 1
-# X-non-periodic
-n += args['ny'] - 1
-args['n'] = n
-# n in case of periodic X
-if args['xperiodic'] == True:
-    args['real_n'] = n - (args['ny'] - 1)
-else:
-    args['real_n'] = n
 
 # create string operator pair (x-PBC) MPO enclosing different area
 closed_str_list = crt.str_create3(args, sep)
@@ -68,19 +69,23 @@ with open(result_dir + '/parameters.txt', 'a+') as file:
     file.write("area: {}\ncircumference: {}\n".format(area, circum))
     file.write("bond on str: \n{}\n".format(bond_on_str))
     file.write("bond number: \n{}\n".format(bond_list))
-    file.write("bond within distance {}: \n{}\n\n".format(width, region))
+    if benchmark == False:
+        file.write("bond within distance {}: \n{}\n\n".format(width, region))
 
 # quasi-adiabatic evolution (using Hamiltonian in the selected region): 
 # S' = exp(-iH't) S exp(+iH't) - hz increasing
 hz_max = args['hz']
-stepNum = int(p.args['ttotal']/p.args['tau'])
+stepNum = int(args['ttotal']/args['tau'])
 iterlist = np.linspace(0, hz_max, num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 timestep = args['ttotal']/stepNum
-args['g'] = -p.args['g']
+args['g'] *= -1
 for hz in tqdm(iterlist):
     args['hz'] = -hz
-    gateList = gates.makeGateList(len(str_op), args, region=region)
+    if benchmark == False:
+        gateList = gates.makeGateList(len(str_op), args, region=region)
+    elif benchmark == True:
+        gateList = gates.makeGateList(len(str_op), args)
     str_op = mpo.gateTEvol(str_op, gateList, timestep, timestep, args=args)
 # save string operator
 op_save = np.asarray(str_op)
@@ -89,13 +94,13 @@ np.save(result_dir + filename, op_save)
 
 # adiabatic evolution (Heisenberg picture): 
 # exp(+iH't) S exp(-iH't) - hz decreasing
-stepNum = int(p.args['ttotal']/p.args['tau'])
+stepNum = int(args['ttotal']/args['tau'])
 iterlist = np.linspace(0, hz_max, num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 iterlist = np.flip(iterlist)
 timestep = args['ttotal']/stepNum
 # restore g
-args['g'] = p.args['g']
+args['g'] *= -1
 for hz in tqdm(iterlist):
     args['hz'] = hz
     gateList = gates.makeGateList(len(str_op), args)

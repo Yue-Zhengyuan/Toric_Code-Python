@@ -18,8 +18,8 @@ from itertools import product
 
 args = copy(p.args)
 
-for sep, hz in product([6,10,14], np.linspace(0.05, 0.2,num=4, endpoint=True)):
-    result_dir = "mps_adiab_2019-04-29_15-54/"
+for sep, hz in product(range(1, args['ny'] - 1), [0.4]):
+    result_dir = "mps_adiab_2019-04-30_23-26/"
     resultfile = result_dir + \
         'undressed_result_sep-{}_hz-{:.2f}.txt'.format(sep, hz)
     with open(resultfile, 'w+') as file:

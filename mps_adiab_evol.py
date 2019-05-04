@@ -20,6 +20,18 @@ args = copy(p.args)
 if len(sys.argv) > 1:   # executed by the "run..." file
     result_dir = sys.argv[1]
     args['nx'] = int(sys.argv[2])
+    # modify total number of sites
+    n = 2 * (args['nx'] - 1) * args['ny']
+    # Y-non-periodic
+    n -= args['nx'] - 1
+    # X-non-periodic
+    n += args['ny'] - 1
+    args['n'] = n
+    # n in case of periodic X
+    if args['xperiodic'] == True:
+        args['real_n'] = n - (args['ny'] - 1)
+    else:
+        args['real_n'] = n
     # save parameters
     with open(result_dir + '/parameters.txt', 'a+') as file:
         file.write(json.dumps(args) + '\n')  # use json.loads to do the reverse
@@ -37,7 +49,7 @@ psi = gnd_state.gnd_state_builder(args)
 
 # adiabatic evolution: exp(-iHt)|psi> (With field along z)
 hz_max = args['hz']
-stepNum = int(p.args['ttotal']/p.args['tau'])
+stepNum = int(args['ttotal']/args['tau'])
 iterlist = np.linspace(0, hz_max, num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 timestep = args['ttotal']/stepNum

@@ -15,12 +15,12 @@ from copy import copy
 from tqdm import tqdm
 
 args = copy(p.args)
-nx = 7
+nx = 4
 ny = args['ny']
 sep = 10
 hz = args['hz']
 
-result_dir = "mpopair_quasi_2019-05-02_20-45/"
+result_dir = "mpopair_quasi_2019-05-04_10-49/"
 label = "quasi"
 op = np.load(result_dir + '{}_op_{}by{}_sep-{}_hz-{:.2f}.npy'.format(label, nx, ny, sep, hz))
 op = list(op)

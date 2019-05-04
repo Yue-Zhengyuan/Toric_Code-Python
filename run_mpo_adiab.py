@@ -39,4 +39,4 @@ for nx, sep, hz in product(nx_list, sep_list, hz_list):
     command = python + " mpo_adiab_evol.py {0} {1} {2} {3:.2f} > {4}outfile_{1}_{2}_{3:.2f} 2>&1 &".format(result_dir, nx, sep, hz, out_dir)
     os.system(command)
 # command format
-# python main_mpo_adiab.py > outfile_mpoadiab 2>&1 &
+# python main_mpo_adiab.py > outfile 2>&1 &

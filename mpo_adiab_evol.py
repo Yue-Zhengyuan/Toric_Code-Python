@@ -23,29 +23,29 @@ if len(sys.argv) > 1:   # executed by the "run..." file
     args['nx'] = int(sys.argv[2])
     sep = int(sys.argv[3])
     args['hz'] = float(sys.argv[4])
+
+    # modify total number of sites
+    n = 2 * (args['nx'] - 1) * args['ny']
+    # Y-non-periodic
+    n -= args['nx'] - 1
+    # X-non-periodic
+    n += args['ny'] - 1
+    args['n'] = n
+    # n in case of periodic X
+    if args['xperiodic'] == True:
+        args['real_n'] = n - (args['ny'] - 1)
+    else:
+        args['real_n'] = n
 else:
     nowtime = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')
     result_dir = "mpopair_adiab_" + nowtime + "/"
-    # use default args['nx']
+    # use default p.args['nx']
     sep = 10
-    # use default args['hz']
+    # use default p.args['hz']
     os.makedirs(result_dir, exist_ok=True)
     # save parameters
     with open(result_dir + '/parameters.txt', 'w+') as file:
         pass
-
-# modify total number of sites
-n = 2 * (args['nx'] - 1) * args['ny']
-# Y-non-periodic
-n -= args['nx'] - 1
-# X-non-periodic
-n += args['ny'] - 1
-args['n'] = n
-# n in case of periodic X
-if args['xperiodic'] == True:
-    args['real_n'] = n - (args['ny'] - 1)
-else:
-    args['real_n'] = n
 
 # create string operator pair (x-PBC) MPO enclosing different area
 closed_str_list = crt.str_create3(args, sep)
@@ -71,7 +71,7 @@ with open(result_dir + '/parameters.txt', 'a+') as file:
 # adiabatic evolution (Heisenberg picture): 
 # exp(+iH't) S exp(-iH't) - hz decreasing
 hz_max = args['hz']
-stepNum = int(p.args['ttotal']/p.args['tau'])
+stepNum = int(args['ttotal']/args['tau'])
 iterlist = np.linspace(0, hz_max, num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 iterlist = np.flip(iterlist)

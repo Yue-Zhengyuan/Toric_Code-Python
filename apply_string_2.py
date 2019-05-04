@@ -39,7 +39,7 @@ for sep in [10]:
         else:
             args['real_n'] = n
         # create Toric Code ground state
-        psi = gnd_state.gnd_state_builder(args)
+        psi = np.load("mps_adiab_2019-04-30_23-26/mps_4by20_hz-0.40.npy")
 
         # restore information of the string
         closed_str_list = crt.str_create3(args, sep)
@@ -47,7 +47,7 @@ for sep in [10]:
         bond_on_str, area, circum = crt.convertToStrOp(string, args)
         bond_list = [lat.lat(bond_on_str[i][0:2], bond_on_str[i][2], (args['nx'], args['ny']), args['xperiodic']) for i in range(len(bond_on_str))]
 
-        op = np.load(result_dir + 'final_op_{}by{}_sep-{}_hz-{:.2f}.npy'.format(args['nx'], args['ny'], sep, args['hz']), allow_pickle=True)
+        op = np.load(result_dir + 'quasi_op_{}by{}_sep-{}_hz-{:.2f}.npy'.format(args['nx'], args['ny'], sep, args['hz']), allow_pickle=True)
         op = list(op)
         exp_value = mps.matElem(psi, op, psi, verbose=True)
         with open(resultfile, 'a+') as file:

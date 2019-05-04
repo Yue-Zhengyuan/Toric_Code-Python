@@ -145,7 +145,7 @@ def cleanGates(gateList):
         else:
             j += 1
 
-def makeGateList(siteNum, args, region=range(p.args['real_n'])):
+def makeGateList(siteNum, args, region=range(10000)):
     """
     Create time-evolution/swap gate list
 
