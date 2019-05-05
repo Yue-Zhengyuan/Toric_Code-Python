@@ -313,17 +313,17 @@ def matElem(psi1, op, psi2, verbose=False):
         if (psi1[site].shape[1] != op[site].shape[1] or psi2[site].shape[1] != op[site].shape[2]):
             sys.exit('Number of sites of MPS and MPO do not match.')
     # partial contraction
-    #      ___
-    #  i --| |-- j
-    #      -|-
-    #       a
-    #      _|_
-    #  k --| |-- l
-    #      -|- 
-    #       b
-    #      _|_
-    #  m --| |-- n
-    #      ---
+    #      ___       ___
+    #  i --| |-- j --| |-- o
+    #      -|-       -|-
+    #       a         p
+    #      _|_       _|_
+    #  k --| |-- l --| |--q
+    #      -|-       -|-
+    #       b         r
+    #      _|_       _|_
+    #  m --| |-- n --| |--s
+    #      ---       ---
     # 
     result = []
     if verbose:
@@ -332,25 +332,16 @@ def matElem(psi1, op, psi2, verbose=False):
     else:
         iterlist = range(siteNum)
     for site in iterlist:
-        group = np.einsum('iaj,kabl,mbn->ikmjln', 
-        np.conj(psi1[site]), op[site], psi2[site], optimize=True)
-        result.append(group)
-        if site > 0:
-            result[0] = np.tensordot(result[0], group, axes=3)
-            del result[1]
-    result[0] = np.reshape(result[0], 1)
-    return result[0][0]
-    # # full contraction
-    # elem = result[0]
-    # if verbose:
-    #     print("Calculating matrix element: stage 2")
-    #     iterlist = tqdm(np.arange(1, siteNum, 1, dtype=int))
-    # else:
-    #     iterlist = np.arange(1, siteNum, 1, dtype=int)
-    # for site in iterlist:
-    #     elem = np.tensordot(elem, result[site], axes=3)
-    # elem = np.reshape(elem, 1)
-    # return elem[0]
+        if site == 0:
+            result = np.einsum('iaj,kabl,mbn->ikmjln', np.conj(psi1[site]), op[site], psi2[site], optimize=True)
+            shape = np.shape(result)
+            result = np.reshape(result, (shape[3], shape[4], shape[5]))
+        elif site > 0:
+            result = np.einsum('jln,jpo->olnp', result, np.conj(psi1[site]), optimize=True)
+            result = np.einsum('olnp,lprq->oqnr', result, op[site], optimize=True)
+            result = np.einsum('oqnr,nrs->oqs', result, psi2[site], optimize=True)
+    result = np.reshape(result, 1)[0]
+    return result
 
 def gateTEvol(psi, gateList, ttotal, tstep, args):
     """
