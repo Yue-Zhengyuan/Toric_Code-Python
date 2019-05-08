@@ -76,7 +76,7 @@ def position(psi, pos, args, oldcenter=-1, preserve_norm=False, compute_entg=Fal
     oldcenter : int between -1 and len(psi) - 1 (default = -1)
         if old center == -1,           do right canonization
         if old center == len(psi)-1,   do left canonization
-    preserve_norm : default True 
+    preserve_norm : default False 
         determine how s is combined with u,v in SVD
         Example: if going from left to right
             if True : u -> u * |s|; v -> s/|s| * v

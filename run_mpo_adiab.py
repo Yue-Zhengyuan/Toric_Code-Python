@@ -14,7 +14,7 @@ from itertools import product
 
 # create result directory
 nowtime = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')
-result_dir = "mpopair_adiab_" + nowtime + "/"
+result_dir = "mpopair_adiab-tevol_" + nowtime + "/"
 os.makedirs(result_dir, exist_ok=True)
 out_dir = result_dir + 'outfile/'
 os.makedirs(out_dir, exist_ok=True)
@@ -26,9 +26,10 @@ with open(parafile, 'w+') as file:
 
 python = "~/anaconda3/bin/python"
 # create string list (can handle both x-PBC and OBC)
-sep_list = [6, 10, 14]
-nx_list = range(3, 8)
-hz_list = [p.args['hz']] # use default value
+sep_list = [10]
+nx_list = range(6, 7)
+hz_list = np.linspace(0, p.args['hz'], num=11, endpoint=True)
+hz_list = np.delete(hz_list, 0)
 for nx, sep, hz in product(nx_list, sep_list, hz_list):
     # command parameters
     # 0 -> result dir

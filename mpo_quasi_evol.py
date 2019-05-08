@@ -23,7 +23,7 @@ if len(sys.argv) > 1:   # executed by the "run..." file
     args['nx'] = int(sys.argv[2])
     sep = int(sys.argv[3])
     benchmark = bool(int(sys.argv[4]))
-    width = 3
+    width = 2
     # modify total number of sites
     n = 2 * (args['nx'] - 1) * args['ny']
     # Y-non-periodic
@@ -42,7 +42,7 @@ else:
     # use default p.args['nx']
     sep = 10
     # use default p.args['hz']
-    width = 3
+    width = 2
     os.makedirs(result_dir, exist_ok=True)
     benckmark = False
     # save parameters

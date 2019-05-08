@@ -1,5 +1,5 @@
 # 
-#   main_mps.py
+#   mpo_entg.py
 #   Toric_Code-Python
 #   apply the Trotter gates to MPS
 #
@@ -13,28 +13,30 @@ import lattice as lat
 import sys, os, datetime, time, json, ast
 from copy import copy
 from tqdm import tqdm
+from itertools import product
 
 args = copy(p.args)
-nx = 4
+nx = 3
 ny = args['ny']
 sep = 10
 hz = args['hz']
 
-result_dir = "mpopair_quasi_2019-05-04_10-49/"
-label = "quasi"
-op = np.load(result_dir + '{}_op_{}by{}_sep-{}_hz-{:.2f}.npy'.format(label, nx, ny, sep, hz))
-op = list(op)
-entg_file = result_dir + '/entg_{}_{}by{}_{}.txt'.format(label, nx, ny, sep)
-with open(entg_file, 'w+') as file:
-    pass
+result_dir = "mpopair_adiab-test_2019-05-08_20-40/"
+label = "adiab"
+for nx, hz in product(range(3,4), [0.4]):
+    op = np.load(result_dir + '{}_op_{}by{}_sep-{}_hz-{:.2f}.npy'.format(label, nx, ny, sep, hz))
+    op = list(op)
+    entg_file = result_dir + '/entg_{}_{}by{}_{}.txt'.format(label, nx, ny, sep)
+    with open(entg_file, 'w+') as file:
+        pass
 
-for site in tqdm(range(len(op))):
-    op, entg = mpo.position(op, site, args, oldcenter=site - 1, compute_entg=True)
-    y = int(site / (nx - 1))
-    x = site % (nx - 1)
-    if y % 2 == 0:
-        bonddir = 'r'
-    else:
-        bonddir = 'd'
-    with open(entg_file, 'a+') as file:
-        file.write("{}\t{}\t{}\t{}\t{}\n".format(site, x, int(y/2), bonddir, entg))
+    for site in tqdm(range(len(op))):
+        op, entg = mpo.position(op, site, args, oldcenter=site - 1, compute_entg=True)
+        y = int(site / (nx - 1))
+        x = site % (nx - 1)
+        if y % 2 == 0:
+            bonddir = 'r'
+        else:
+            bonddir = 'd'
+        with open(entg_file, 'a+') as file:
+            file.write("{}\t{}\t{}\t{}\t{}\n".format(site, x, int(y/2), bonddir, entg))

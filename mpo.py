@@ -65,13 +65,6 @@ def position(op, pos, args, oldcenter=-1, compute_entg=False):
     oldcenter : int between -1 and len(psi) - 1 (default = -1)
         when old center <= 0,            do right canonization
         when old center == len(psi)-1,   do left canonization
-    preserve_norm : default True 
-        determine how s is combined with u,v in SVD
-        Example: if going from left to right
-            if True : u -> u * |s|; v -> s/|s| * v
-                (norm of u is unchanged)
-            if False: u -> u; v -> s * v
-            (|s| = np.norm(s))
     compute_entg : default False
         if True: return the entanglement entropy between the two sides of the orthogonality center
     """

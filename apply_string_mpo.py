@@ -1,7 +1,8 @@
 # 
-#   apply_string.py
+#   apply_string_2.py
 #   Toric_Code-Python
 #   apply the evolved string to Toric Code ground state
+#   (Schroedinger picture: using perturbed ground state)
 #
 #   created on Feb 18, 2019 by Yue Zhengyuan
 #
@@ -18,14 +19,15 @@ from itertools import product
 
 args = copy(p.args)
 
-result_dir = "test/"
+result_dir = "mpopair_quasi_2019-05-07_09-00/"
+psi_dir = "mps_adiab_2019-05-05_02-01/"
 
-for sep in [10]:
+for sep in [6, 10, 14]:
     resultfile = result_dir + \
-        'dressed_result_sep-{}_hz-{:.2f}.txt'.format(sep, args['hz'])
+        'dressed_mpo_sep-{}_hz-{:.2f}.txt'.format(sep, args['hz'])
     with open(resultfile, 'w+') as file:
         pass
-    for nx in range(4, 5):
+    for nx in range(3, 8):
         args['nx'] = nx
         n = 2 * (args['nx'] - 1) * args['ny']
         # Y-non-periodic
@@ -39,7 +41,7 @@ for sep in [10]:
         else:
             args['real_n'] = n
         # create Toric Code ground state
-        psi = gnd_state.gnd_state_builder(args)
+        psi = np.load(psi_dir + "mps_{}by{}_hz-{:.2f}.npy".format(nx, args['ny'], 0.0))
 
         # restore information of the string
         closed_str_list = crt.str_create3(args, sep)

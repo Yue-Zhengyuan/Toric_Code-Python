@@ -60,6 +60,11 @@ for i in range(args['real_n']):
 for i in bond_list:
     str_op[i] = np.reshape(p.sx, (1,2,2,1))
 
+hz_max = args['hz']
+# modify ttotal
+args['ttotal'] = p.args['ttotal'] * hz_max/p.args['hz']
+args['ttotal'] = np.around(args['ttotal'], decimals=2)
+
 # save parameters
 with open(result_dir + '/parameters.txt', 'a+') as file:
     file.write(json.dumps(args) + '\n')  # use json.loads to do the reverse
@@ -70,8 +75,18 @@ with open(result_dir + '/parameters.txt', 'a+') as file:
 
 # adiabatic evolution (Heisenberg picture): 
 # exp(+iH't) S exp(-iH't) - hz decreasing
-hz_max = args['hz']
+# stepNum = int(args['ttotal']/args['tau'])
+# iterlist = np.linspace(0, hz_max, num = stepNum+1, dtype=float)
+# iterlist = np.delete(iterlist, 0)
+# iterlist = np.flip(iterlist)
+# timestep = args['ttotal']/stepNum
+# for hz in tqdm(iterlist):
+#     args['hz'] = hz
+#     gateList = gates.makeGateList(len(str_op), args)
+#     str_op = mpo.gateTEvol(str_op, gateList, timestep, timestep, args=args)
+
 stepNum = int(args['ttotal']/args['tau'])
+print("Step Number for Evolution:", stepNum)
 iterlist = np.linspace(0, hz_max, num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 iterlist = np.flip(iterlist)
@@ -80,7 +95,8 @@ for hz in tqdm(iterlist):
     args['hz'] = hz
     gateList = gates.makeGateList(len(str_op), args)
     str_op = mpo.gateTEvol(str_op, gateList, timestep, timestep, args=args)
+
 # save string operator
 op_save = np.asarray(str_op)
-filename = "adiab_op_{}by{}_sep-{}_hz-{:.2f}".format(args['nx'], args['ny'], sep, hz_max)
+filename = "adiab_op_{}by{}_sep-{}_t-{:.2f}".format(args['nx'], args['ny'], sep, args['ttotal'])
 np.save(result_dir + filename, op_save)
