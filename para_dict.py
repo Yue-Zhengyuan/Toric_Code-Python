@@ -12,12 +12,12 @@ import numpy as np
 # current convention:
 # for the same system width (x)
 # x_PBC = x_OBC - 1 (will be fixed in the future if time allows)
-args = {'nx': 3, 'ny': 20, 
+args = {'nx': 4, 'ny': 20, 
 'U': 0, 'g': 1.0, 
 'hz': 0.4, 
 'xperiodic': True,
 'tau': 0.005, 'ttotal': 1.0, 
-'cutoff': 1.0E-8, 'bondm': 512}
+'cutoff': 1.0E-13, 'bondm': 512}
 
 n = 2 * (args['nx'] - 1) * args['ny']
 # Y-non-periodic

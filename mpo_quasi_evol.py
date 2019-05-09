@@ -23,7 +23,7 @@ if len(sys.argv) > 1:   # executed by the "run..." file
     args['nx'] = int(sys.argv[2])
     sep = int(sys.argv[3])
     benchmark = bool(int(sys.argv[4]))
-    width = 2
+    width = 3
     # modify total number of sites
     n = 2 * (args['nx'] - 1) * args['ny']
     # Y-non-periodic
@@ -37,14 +37,17 @@ if len(sys.argv) > 1:   # executed by the "run..." file
     else:
         args['real_n'] = n
 else:
+    benchmark = True
     nowtime = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')
-    result_dir = "mpopair_quasi_" + nowtime + "/"
+    if benchmark == False:
+        result_dir = "mpopair_quasi-tevol_" + nowtime + "/"
+    elif benchmark == True:
+        result_dir = "mpopair_bm-tevol_" + nowtime + "/"
     # use default p.args['nx']
     sep = 10
     # use default p.args['hz']
-    width = 2
+    width = 3
     os.makedirs(result_dir, exist_ok=True)
-    benckmark = False
     # save parameters
     with open(result_dir + '/parameters.txt', 'w+') as file:
         pass
@@ -80,6 +83,7 @@ iterlist = np.linspace(0, hz_max, num = stepNum+1, dtype=float)
 iterlist = np.delete(iterlist, 0)
 timestep = args['ttotal']/stepNum
 args['g'] *= -1
+step = 0
 for hz in tqdm(iterlist):
     args['hz'] = -hz
     if benchmark == False:
@@ -87,10 +91,13 @@ for hz in tqdm(iterlist):
     elif benchmark == True:
         gateList = gates.makeGateList(len(str_op), args)
     str_op = mpo.gateTEvol(str_op, gateList, timestep, timestep, args=args)
-# save string operator
-op_save = np.asarray(str_op)
-filename = "quasi_op_{}by{}_sep-{}_hz-{:.2f}".format(args['nx'], args['ny'], sep, hz_max)
-np.save(result_dir + filename, op_save)
+    step += 1
+    # save string operator
+    if step % 20 == 0:
+        t = step / stepNum * args['ttotal']
+        op_save = np.asarray(str_op)
+        filename = "quasi_op_{}by{}_sep-{}_hz-{:.2f}_t-{:.2f}".format(args['nx'], args['ny'], sep, hz_max, t)
+        np.save(result_dir + filename, op_save)
 
 # adiabatic evolution (Heisenberg picture): 
 # exp(+iH't) S exp(-iH't) - hz decreasing

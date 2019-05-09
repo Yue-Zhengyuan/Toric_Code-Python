@@ -75,16 +75,6 @@ with open(result_dir + '/parameters.txt', 'a+') as file:
 
 # adiabatic evolution (Heisenberg picture): 
 # exp(+iH't) S exp(-iH't) - hz decreasing
-# stepNum = int(args['ttotal']/args['tau'])
-# iterlist = np.linspace(0, hz_max, num = stepNum+1, dtype=float)
-# iterlist = np.delete(iterlist, 0)
-# iterlist = np.flip(iterlist)
-# timestep = args['ttotal']/stepNum
-# for hz in tqdm(iterlist):
-#     args['hz'] = hz
-#     gateList = gates.makeGateList(len(str_op), args)
-#     str_op = mpo.gateTEvol(str_op, gateList, timestep, timestep, args=args)
-
 stepNum = int(args['ttotal']/args['tau'])
 print("Step Number for Evolution:", stepNum)
 iterlist = np.linspace(0, hz_max, num = stepNum+1, dtype=float)

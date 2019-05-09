@@ -13,12 +13,12 @@ from copy import copy
 from itertools import product
 
 # create result directory
-benchmark = False
+benchmark = True
 nowtime = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')
 if benchmark == False:
-    result_dir = "mpopair_quasi_" + nowtime + "/"
+    result_dir = "mpopair_quasi-tevol_" + nowtime + "/"
 elif benchmark == True:
-    result_dir = "mpopair_bm_" + nowtime + "/"
+    result_dir = "mpopair_bm-tevol_" + nowtime + "/"
 os.makedirs(result_dir, exist_ok=True)
 out_dir = result_dir + 'outfile/'
 os.makedirs(out_dir, exist_ok=True)
@@ -30,7 +30,7 @@ with open(parafile, 'w+') as file:
 
 python = "~/anaconda3/bin/python"
 # create string list (can handle both x-PBC and OBC)
-sep_list = [6, 10, 14]
+sep_list = [6, 10, 13]
 nx_list = range(3, 8)
 for nx, sep in product(nx_list, sep_list):
     # command parameters

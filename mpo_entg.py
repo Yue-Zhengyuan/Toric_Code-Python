@@ -16,17 +16,19 @@ from tqdm import tqdm
 from itertools import product
 
 args = copy(p.args)
-nx = 3
+nx = 4
 ny = args['ny']
 sep = 10
 hz = args['hz']
 
-result_dir = "mpopair_adiab-test_2019-05-08_20-40/"
-label = "adiab"
-for nx, hz in product(range(3,4), [0.4]):
-    op = np.load(result_dir + '{}_op_{}by{}_sep-{}_hz-{:.2f}.npy'.format(label, nx, ny, sep, hz))
+result_dir = "mpopair_quasi-tevol_2019-05-09_19-30/"
+label = "quasi"
+t_list = np.linspace(0, p.args['ttotal'], num=11, endpoint=True)
+t_list = np.delete(t_list, 0)
+for t in [1.0]:
+    op = np.load(result_dir + '{}_op_{}by{}_sep-{}_hz-{:.2f}_t-{:.2f}.npy'.format(label, nx, ny, sep, hz, t))
     op = list(op)
-    entg_file = result_dir + '/entg_{}_{}by{}_{}.txt'.format(label, nx, ny, sep)
+    entg_file = result_dir + '/entg_{}_{}by{}_sep-{}_t-{:.2f}.txt'.format(label, nx, ny, sep, t)
     with open(entg_file, 'w+') as file:
         pass
 
