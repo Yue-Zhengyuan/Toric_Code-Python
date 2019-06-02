@@ -1,7 +1,7 @@
 # 
 #   mpo_entg.py
 #   Toric_Code-Python
-#   apply the Trotter gates to MPS
+#   calculate entanglement entropy in MPO
 #
 #   created on Feb 18, 2019 by Yue Zhengyuan
 #
@@ -16,16 +16,16 @@ from tqdm import tqdm
 from itertools import product
 
 args = copy(p.args)
-nx = 4
+nx = 6
 ny = args['ny']
 sep = 10
 hz = args['hz']
 
-result_dir = "mpopair_quasi-tevol_2019-05-09_19-30/"
+result_dir = "mpopair_bm-tevol_2019-05-09_20-09/"
 label = "quasi"
 t_list = np.linspace(0, p.args['ttotal'], num=11, endpoint=True)
 t_list = np.delete(t_list, 0)
-for t in [1.0]:
+for t in [0.6]:
     op = np.load(result_dir + '{}_op_{}by{}_sep-{}_hz-{:.2f}_t-{:.2f}.npy'.format(label, nx, ny, sep, hz, t))
     op = list(op)
     entg_file = result_dir + '/entg_{}_{}by{}_sep-{}_t-{:.2f}.txt'.format(label, nx, ny, sep, t)

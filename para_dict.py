@@ -17,7 +17,7 @@ args = {'nx': 4, 'ny': 20,
 'hz': 0.4, 
 'xperiodic': True,
 'tau': 0.005, 'ttotal': 1.0, 
-'cutoff': 1.0E-13, 'bondm': 512}
+'cutoff': 1.0E-8, 'bondm': 512}
 
 n = 2 * (args['nx'] - 1) * args['ny']
 # Y-non-periodic

@@ -30,8 +30,8 @@ with open(parafile, 'w+') as file:
 
 python = "~/anaconda3/bin/python"
 # create string list (can handle both x-PBC and OBC)
-sep_list = [6, 10, 13]
-nx_list = range(3, 8)
+sep_list = [10]
+nx_list = range(6, 7)
 for nx, sep in product(nx_list, sep_list):
     # command parameters
     # 0 -> result dir
