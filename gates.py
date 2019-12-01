@@ -229,28 +229,29 @@ def makeGateList(siteNum, args, region=range(10000)):
     # plaquette (XXXX), closed string (X...X) and field (Z)
     # make vertex gates
     if (args['U'] != 0):
-        for i in np.arange(args['nx'] + 1, args['n'] - 3 * args['nx'] + 2, 2 * args['nx'] - 1, dtype=int):
-            for j in np.arange(0, args['nx'] - 2, 1, dtype=int):
-                u = i + j
-                l = u + args['nx'] - 1
-                r = l + 1
-                d = l + args['nx']
-                sites = [u - 1, l - 1, r - 1, d - 1]
-                sites.sort()
-                # create swap gates
-                for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):
-                    swapGates.append(gate([site, site + 1], putsite, 'Swap', args))
-                for site in np.arange(sites[3]-1, sites[2], -1, dtype=int):
-                    swapGates.append(gate([site, site + 1], putsite, 'Swap', args))
-                gateSites = [sites[1]-1, sites[1], sites[1]+1, sites[1]+2]
-                for k in range(len(swapGates)):
-                    gateList.append(swapGates[k])
-                # evolution gate (vertex)
-                gateList.append(gate(gateSites, putsite, 'tEvolV', args))
-                # put sites back to the original place
-                for k in reversed(range(len(swapGates))):
-                    gateList.append(swapGates[k])
-                swapGates.clear()
+        # i -> row; j -> column
+        if xperiodic == True:
+            irange = range(args['nx'] - 1)
+        else:
+            irange = range(args['nx'])
+        for j, i in product(range(args['ny'] - 1), irange):
+            out_of_region = False
+            sites = lat.vertex((i, j), args)
+            sites.sort()
+            # create swap gates
+            for site in np.arange(sites[0], sites[1]-1, 1, dtype=int):
+                swapGates.append(gate([site, site + 1], putsite, 'Swap', args))
+            for site in np.arange(sites[3]-1, sites[2], -1, dtype=int):
+                swapGates.append(gate([site, site + 1], putsite, 'Swap', args))
+            gateSites = [sites[1]-1, sites[1], sites[1]+1, sites[1]+2]
+            for k in range(len(swapGates)):
+                gateList.append(swapGates[k])
+            # evolution gate (vertex)
+            gateList.append(gate(gateSites, putsite, 'tEvolV', args))
+            # put sites back to the original place
+            for k in reversed(range(len(swapGates))):
+                gateList.append(swapGates[k])
+            swapGates.clear()
 
     # second order Trotter decomposition
     # b1.b2.b3....b3.b2.b1

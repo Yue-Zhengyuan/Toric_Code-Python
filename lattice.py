@@ -53,6 +53,24 @@ def lat(site, dir, size, xperiodic):
             sys.exit('Wrong direction of the bond')
     return num
 
+def vertex(site, args):
+    """
+    generate vertex centered at site (x, y)
+
+    Parameters
+    --------------
+    site : int
+        (x, y) coordinate of the center of the vertex
+        (from 0 to size - 1)
+    """
+    nx, ny = args['nx'], args['ny']
+    xperiodic = args['xperiodic']
+    if xperiodic == True:
+        sites = []
+    elif xperiodic == False:
+        sites = []
+    return sites
+
 def site(coord, size, xperiodic):
     """
     numbering the square lattice sites
